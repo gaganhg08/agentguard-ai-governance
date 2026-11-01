@@ -165,9 +165,13 @@ class MockAgentRunResponse(BaseModel):
     agent_role: str
     user_prompt: str
     proposed_tool: str
+    target_resource: Optional[str] = "System / General"
     proposed_parameters: dict[str, Any]
     policy_decision: str
     policy_reason: str
+    applicable_policy: Optional[str] = "Default-Deny Policy"
     risk_level: str
     approval_id: Optional[str] = None
     execution_result: Optional[str] = None
+    guardrail_flags: list[str] = Field(default_factory=list)
+    evaluation_trace: list[dict[str, str]] = Field(default_factory=list)

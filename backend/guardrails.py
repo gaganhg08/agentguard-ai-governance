@@ -37,6 +37,18 @@ REGISTERED_TOOLS: dict[str, dict[str, Any]] = {
     },
 
     # Specific Tool Specifications
+    "read_customer_data": {
+        "description": "Read customer profile, account contact information, and preferences",
+        "category": "support",
+        "risk": "LOW",
+        "required_params": ["customer_id"]
+    },
+    "approve_refund": {
+        "description": "Authorize and disburse pending customer refund (Mandatory Dual-Control)",
+        "category": "finance",
+        "risk": "HIGH",
+        "required_params": ["refund_id", "amount"]
+    },
     "search_faq": {
         "description": "Search knowledge base articles for customer queries",
         "category": "support",
@@ -174,7 +186,7 @@ class GuardrailsValidator:
                 return False, f"Missing required parameter '{field}' for tool '{tool_name}'"
 
         # Specific parameter validations
-        if tool_name in ["issue_refund", "process_payment"]:
+        if tool_name in ["issue_refund", "process_payment", "approve_refund"]:
             amount = parameters.get("amount")
             try:
                 val = float(amount)

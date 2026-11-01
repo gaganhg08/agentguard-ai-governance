@@ -109,6 +109,7 @@ def seed_database(db: Session = None):
             # Tool mappings for Customer Support
             Permission(role="Customer Support", tool_name="search_faq", action_type="read", requires_approval=False),
             Permission(role="Customer Support", tool_name="view_order", action_type="read", requires_approval=False),
+            Permission(role="Customer Support", tool_name="read_customer_data", action_type="read", requires_approval=False, description="Read customer contact profile"),
             Permission(role="Customer Support", tool_name="send_email", action_type="write", requires_approval=False),
             Permission(role="Customer Support", tool_name="issue_refund", action_type="execute", max_amount=100.0, requires_approval=False),
 
@@ -117,6 +118,7 @@ def seed_database(db: Session = None):
             Permission(role="Finance", tool_name="ticket:create", action_type="write", requires_approval=False, description="Log billing inquiries"),
             Permission(role="Finance", tool_name="refund:request", action_type="execute", max_amount=5000.0, requires_approval=False, description="Initiate reimbursement"),
             Permission(role="Finance", tool_name="refund:approve", action_type="execute", max_amount=5000.0, requires_approval=True, description="Authorize and disburse refunds"),
+            Permission(role="Finance", tool_name="approve_refund", action_type="execute", max_amount=5000.0, requires_approval=True, description="Authorize customer refund"),
             # Tool mappings for Finance
             Permission(role="Finance", tool_name="view_invoice", action_type="read", requires_approval=False),
             Permission(role="Finance", tool_name="generate_financial_report", action_type="read", requires_approval=False),

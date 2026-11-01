@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Any, Optional
 from backend.database import SessionLocal
 from backend.agent_service import AgentService
@@ -475,12 +476,16 @@ class GovernanceClient:
                 "agent_name": res.agent_name,
                 "agent_role": res.agent_role,
                 "proposed_tool": res.proposed_tool,
+                "target_resource": res.target_resource,
                 "proposed_parameters": res.proposed_parameters,
                 "policy_decision": res.policy_decision,
                 "policy_reason": res.policy_reason,
+                "applicable_policy": res.applicable_policy,
                 "risk_level": res.risk_level,
                 "approval_id": res.approval_id,
-                "execution_result": res.execution_result
+                "execution_result": res.execution_result,
+                "guardrail_flags": res.guardrail_flags,
+                "evaluation_trace": res.evaluation_trace
             }
         finally:
             db.close()

@@ -35,3 +35,8 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+        try:
+            conn.execute(text("ALTER TABLE permissions ADD COLUMN description TEXT DEFAULT ''"))
+            conn.commit()
+        except Exception:
+            pass

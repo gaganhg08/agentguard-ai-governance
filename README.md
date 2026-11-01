@@ -5,7 +5,7 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.33+-FF4B4B.svg?logo=streamlit)](https://streamlit.io/)
 [![Plotly](https://img.shields.io/badge/Plotly-7.0+-3F4F75.svg?logo=plotly)](https://plotly.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-26%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-55%20passed-brightgreen.svg)]()
 
 > **AgentGuard** is an open-source, enterprise-grade AI security gateway and policy enforcement engine. Built for SecOps and AI engineering teams, it prevents autonomous LLM agents from executing unauthorized, dangerous, or unintended actions through real-time interception, role-based access control (RBAC), prompt injection guardrails, human-in-the-loop approvals, and tamper-evident cryptographic audit logging.
 
@@ -155,6 +155,7 @@ agentguard-ai-governance/
 │   ├── conftest.py            # Test fixtures and in-memory test database
 │   ├── test_agent_management.py
 │   ├── test_guardrails.py
+│   ├── test_rbac_permissions.py
 │   ├── test_policy_engine.py
 │   ├── test_approval_workflow.py
 │   ├── test_audit_logs.py
@@ -225,23 +226,21 @@ Open interactive Swagger API Documentation at:
 
 ## 🧪 Automated Security Test Suite
 
-AgentGuard includes 26 rigorous unit and integration tests verifying authorization, edge cases, injection attacks, and cryptographic integrity.
+AgentGuard includes **55 rigorous unit and integration tests** verifying authorization, edge cases, injection attacks, least-privilege matrix rules, and cryptographic integrity.
 
 Run the test suite with:
 ```bash
 pytest tests/ -v
 ```
 
-### Test Coverage Highlights:
-- ✅ **Authorized Actions**: Normal operations correctly evaluated as `ALLOW`.
-- ✅ **Unauthorized Actions**: Cross-role access denied via RBAC (`DENY`).
-- ✅ **Inactive Agent Guard**: Decommissioned agents immediately blocked (`DENY`).
-- ✅ **Unknown Agent Guard**: Unregistered identities rejected (`DENY`).
-- ✅ **Unregistered Tool Guard**: Arbitrary/unrecognized tool executions prevented (`DENY`).
-- ✅ **Prompt Injection Guard**: Adversarial prompts and payload attacks blocked (`DENY`).
-- ✅ **Human Approvals**: High-risk actions paused (`REQUIRE_APPROVAL`).
-- ✅ **Self-Approval Prevention**: Agents cannot review or approve their own requests.
-- ✅ **Tamper-Evident Auditing**: SHA-256 hash chains verify integrity and detect tampering.
+### Test Coverage Highlights (55 Passing Tests):
+- ✅ **AI Agent Lifecycle (10 tests)**: Unique ID validation, active/inactive toggles, credential isolation, and activity metrics.
+- ✅ **Guardrail Protections (5 tests)**: Prompt injection keyword detection, SQL injection shield, shell metacharacter blocking, and parameter boundary validation.
+- ✅ **RBAC & Least Privilege (10 tests)**: Permission assignment, default-deny enforcement, tampering prevention, and cross-role privilege separation.
+- ✅ **Central Policy Engine (12 tests)**: Evaluates identity, tool registry, spending limits, prod server restrictions, and fail-safe defaults.
+- ✅ **Dual-Control Human Approvals (5 tests)**: Request creation, approval/rejection lifecycle, and anti-self-approval enforcement.
+- ✅ **Tamper-Evident Audit Logs (6 tests)**: Cryptographic SHA-256 hash chaining, automatic policy logging, and tamper detection.
+- ✅ **Autonomous AI Playground (7 tests)**: Deterministic mock agent executing all 6 core security scenarios offline without bypassing backend governance.
 
 ---
 
