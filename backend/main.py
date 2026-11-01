@@ -135,6 +135,43 @@ def create_permission(perm_in: PermissionCreate, db: Session = Depends(get_db)):
 
 
 # -----------------------------------------------------------------------------
+# SECURITY POLICIES ENDPOINTS
+# -----------------------------------------------------------------------------
+@app.get("/api/policies", tags=["Policies"])
+def list_policies(db: Session = Depends(get_db)):
+    from backend.models import PolicyRule
+    return db.query(PolicyRule).order_by(PolicyRule.priority.asc()).all()
+
+@app.post("/api/policies", status_code=status.HTTP_201_CREATED, tags=["Policies"])
+def create_policy(data: dict, db: Session = Depends(get_db)):
+    from backend.models import PolicyRule
+    rule = PolicyRule(
+        name=data.get("name"),
+        description=data.get("description", ""),
+        target_tool=data.get("target_tool", "*"),
+        condition_type=data.get("condition_type", "amount_threshold"),
+        condition_value=data.get("condition_value", ""),
+        action=data.get("action", "REQUIRE_APPROVAL"),
+        priority=data.get("priority", 10),
+        is_active=True
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+@app.post("/api/policies/{rule_id}/toggle", tags=["Policies"])
+def toggle_policy(rule_id: int, db: Session = Depends(get_db)):
+    from backend.models import PolicyRule
+    rule = db.query(PolicyRule).filter(PolicyRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail=f"Policy rule '{rule_id}' not found.")
+    rule.is_active = not rule.is_active
+    db.commit()
+    return {"id": rule.id, "name": rule.name, "is_active": rule.is_active}
+
+
+# -----------------------------------------------------------------------------
 # POLICY ENGINE EVALUATION
 # -----------------------------------------------------------------------------
 @app.post("/api/policy/evaluate", response_model=PolicyEvaluationResponse, tags=["Policy Engine"])

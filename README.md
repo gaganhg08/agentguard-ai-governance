@@ -1,51 +1,75 @@
-# AgentGuard – AI Agent Security & Governance Platform 🛡️
+# AgentGuard – Enterprise AI Agent Security & Governance Platform 🛡️
 
 [![Python Version](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.33+-FF4B4B.svg?logo=streamlit)](https://streamlit.io/)
+[![Plotly](https://img.shields.io/badge/Plotly-7.0+-3F4F75.svg?logo=plotly)](https://plotly.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-26%20passed-brightgreen.svg)]()
 
-> **AgentGuard** is an open-source, enterprise-grade AI security gateway and policy enforcement engine. It prevents autonomous LLM agents from executing unauthorized, dangerous, or unintended actions through runtime interception, role-based access control (RBAC), prompt injection guardrails, human-in-the-loop approvals, and tamper-evident audit logging.
+> **AgentGuard** is an open-source, enterprise-grade AI security gateway and policy enforcement engine. Built for SecOps and AI engineering teams, it prevents autonomous LLM agents from executing unauthorized, dangerous, or unintended actions through real-time interception, role-based access control (RBAC), prompt injection guardrails, human-in-the-loop approvals, and tamper-evident cryptographic audit logging.
 
 ---
 
-## 🌟 Key Features
+## 🎨 Enterprise Cybersecurity SaaS UI
 
-1. **AI Agent Management & Lifecycle**:
-   - Register, inspect, activate, and deactivate AI agent identities.
-   - Built-in profiles for Customer Support, Finance, and IT Admin agents.
-   - Immediate rejection of unknown or deactivated agents.
+AgentGuard features a modern, clean cybersecurity SaaS interface:
+- **Dark Navy Sidebar (`#0B1120` / `#0F172A`)**: High-contrast, focused navigation with operational status indicators.
+- **Clean White/Slate Main Canvas (`#F8FAFC`)**: Designed for clarity with subtle card elevations, crisp typography, and high information density.
+- **Blue & Violet Accents (`#2563EB`, `#7C3AED`)**: Modern cybersecurity color palette.
+- **Interactive Plotly Visualizations**: Responsive decision distribution donuts, multi-agent activity timelines, and risk tier categorizations.
+- **Zero Distracting Animations**: Professional enterprise appearance ready for executive SecOps operations.
 
-2. **Default-Deny Security Model & RBAC**:
-   - Least-privilege access control: agents cannot execute tools unless explicitly granted.
-   - Role-based permissions mapped across roles and tools.
+---
 
-3. **Multi-Layered Security Guardrails**:
-   - Interception of prompt injection, jailbreak keywords (`ignore previous instructions`, `override system`), shell metacharacters, and SQL injection signatures.
-   - Automatic parameter schema, type, and range validation (e.g. positive amounts, valid port ranges).
-   - Strict catalog verification to block unknown tools.
+## 🧭 10-Module Navigation Architecture
 
-4. **Dynamic Policy Engine**:
-   - Central backend evaluation returning three discrete outcomes:
-     - `ALLOW` – Authorized, low/standard risk.
-     - `DENY` – Blocked by identity check, RBAC, parameter rules, or guardrails.
-     - `REQUIRE_APPROVAL` – Sensitive infrastructure, financial limits, or high-risk actions.
+1. **📊 1. Overview**:
+   - High-level KPI cards: Total Registered Agents, Blocked Actions (DENY), Pending Approvals, Total Interceptions.
+   - Interactive Plotly decision donut chart and multi-agent activity breakdown.
+   - Real-time stream of incoming security events and policy verdicts.
 
-5. **Human-in-the-Loop Approval Center**:
-   - High-value transactions or sensitive operations (e.g., service restart, firewall rules, high refunds) pause and queue for authorized human review.
-   - **Self-Approval Prevention**: Agents are cryptographically and logically forbidden from approving their own requests.
+2. **🤖 2. AI Agents**:
+   - Complete agent fleet directory displaying agent cards, roles, unique IDs, and operational status.
+   - 1-click Activate / Deactivate lifecycle toggle.
+   - Agent Registration console to enroll new autonomous agents.
 
-6. **Tamper-Evident Append-Only Audit Trail**:
-   - Every policy interception and human review is logged with timestamps, agent IDs, parameters, and decisions.
-   - **SHA-256 Hash Chaining**: Every record is cryptographically linked to the previous entry, enabling verifiable mathematical proof that records were never altered or deleted.
+3. **📜 3. Security Policies**:
+   - Granular execution policy rules with priority ordering and threshold criteria.
+   - Policy management to toggle rules active/inactive and deploy custom governance rules.
 
-7. **Autonomous Mock AI Agent Playground**:
-   - 100% offline agent simulator that formulates actions without requiring paid external API keys.
-   - Proves that no matter how an LLM plans or hallucinates an action, it can **never** bypass backend governance.
+4. **🛡️ 4. Permissions & Roles**:
+   - Comprehensive Role-Based Access Control (RBAC) matrix.
+   - Platform Tool Catalog with baseline risk tiers (LOW, MEDIUM, HIGH, CRITICAL).
+   - Tool permission assigner for customer support, finance, IT admin, secops, and custom roles.
 
-8. **Interactive Streamlit Dashboard**:
-   - Comprehensive multi-page management console covering Overview KPIs, Agent Fleet, Permission Matrix, Policy Test Bench, Approval Queue, Audit Viewer, and Playground.
+5. **🛡️ 5. Guardrails**:
+   - Real-time Threat Defense configuration: Prompt injection scanner, SQL injection shield, shell metacharacter filter.
+   - **Interactive Live Payload Tester**: Test untrusted text strings and adversarial payloads directly against the guardrails scanner.
+
+6. **⚖️ 6. Policy Evaluation**:
+   - Interactive test bench simulating tool calls across agent identities.
+   - Real-time step-by-step evaluation trace: *Identity Check $\to$ Guardrails $\to$ RBAC $\to$ Sensitivity Analysis $\to$ Final Verdict*.
+
+7. **✋ 7. Human Approvals**:
+   - Human-in-the-loop review queue for paused high-risk actions.
+   - Complete argument inspection with 1-click Approve / Reject.
+   - **Strict Self-Approval Prevention**: Agents are logically and cryptographically prohibited from authorizing their own requests.
+
+8. **📜 8. Audit Logs**:
+   - Searchable, filterable audit trail tracking every interception.
+   - **Cryptographic SHA-256 Hash Chaining**: Mathematical verification proving records have never been tampered with or deleted.
+   - One-click CSV export for external SIEM analysis.
+
+9. **🧪 9. AI Playground**:
+   - Interactive autonomous agent simulation room running 100% offline (no API keys required).
+   - Includes attack presets: Support Refund, Excessive Payment, Firewall Change, Prompt Injection, and SQL Injection.
+   - Side-by-side comparison of **Agent Plan** vs. **AgentGuard Policy Interception**.
+
+10. **⚙️ 10. Settings**:
+    - Platform configuration: Enforcement Mode (Default-Deny) vs. Passive Monitoring.
+    - Database maintenance tools with 1-click Sample Data Re-seeding.
+    - Active runtime environment telemetry.
 
 ---
 
@@ -93,8 +117,9 @@ flowchart TD
 | **Database** | [SQLite](https://www.sqlite.org/) | Embedded ACID-compliant database |
 | **ORM** | [SQLAlchemy 2.0](https://www.sqlalchemy.org/) | Type-safe database models and relationships |
 | **Data Validation** | [Pydantic v2](https://docs.pydantic.dev/) | Strict request/response schemas & parsing |
-| **Dashboard** | [Streamlit](https://streamlit.io/) | Interactive security operations console |
-| **Testing** | [pytest](https://docs.pytest.org/) | 26 automated unit and security tests |
+| **Dashboard** | [Streamlit](https://streamlit.io/) | Interactive cybersecurity operations console |
+| **Visualizations** | [Plotly](https://plotly.com/) | Enterprise interactive charts |
+| **Testing** | [pytest](https://docs.pytest.org/) | Automated unit and security test suite |
 | **Version Control** | [Git & GitHub](https://github.com/) | Source code repository and tracking |
 
 ---
@@ -107,21 +132,23 @@ agentguard-ai-governance/
 │   ├── __init__.py
 │   ├── config.py              # Configuration settings and risk thresholds
 │   ├── database.py            # SQLite engine, sessions, table initializers
-│   ├── models.py              # SQLAlchemy models (Agent, Permission, ApprovalRequest, AuditLog)
+│   ├── models.py              # SQLAlchemy models (Agent, Permission, PolicyRule, ApprovalRequest, AuditLog)
 │   ├── schemas.py             # Pydantic data contracts
 │   ├── guardrails.py          # Prompt injection, tool catalogs, bounds validation
 │   ├── policy_engine.py       # Core policy evaluation brain
 │   ├── agent_service.py       # Agent lifecycle and registry
 │   ├── approval_service.py    # Human approval workflow & queue
 │   ├── audit_service.py       # SHA-256 cryptographic audit logger
-│   ├── mock_agent.py          # Autonomous mock AI agent
+│   ├── mock_agent.py          # Autonomous mock AI agent (offline)
 │   ├── seed_data.py           # Preloaded enterprise sample agents and rules
 │   └── main.py                # FastAPI REST application
 ├── frontend/
 │   ├── __init__.py
-│   ├── app.py                 # Streamlit Web Dashboard
+│   ├── app.py                 # Streamlit Web Dashboard (10 Navigation Views)
 │   └── components/
 │       ├── __init__.py
+│       ├── styles.py          # Enterprise cybersecurity CSS theme
+│       ├── charts.py          # Plotly visualization components
 │       └── api_client.py      # Resilient governance client
 ├── tests/
 │   ├── __init__.py
@@ -138,6 +165,7 @@ agentguard-ai-governance/
 │   └── seed_database.py       # Populate initial baseline data
 ├── docs/
 │   └── screenshots/           # UI screenshots and visual assets
+├── .env.example               # Environment variables template
 ├── .gitignore
 ├── requirements.txt
 └── README.md
@@ -195,7 +223,7 @@ Open interactive Swagger API Documentation at:
 
 ---
 
-## 🧪 Running the Security Test Suite
+## 🧪 Automated Security Test Suite
 
 AgentGuard includes 26 rigorous unit and integration tests verifying authorization, edge cases, injection attacks, and cryptographic integrity.
 
@@ -217,33 +245,12 @@ pytest tests/ -v
 
 ---
 
-## 🧭 Dashboard Walkthrough
-
-1. **📊 Overview**: Live telemetry, total interceptions, security blocks, active fleet breakdown, and decision charts.
-2. **🤖 Agent Management**: Inspect registered agent cards, toggle active/deactive status, or register new agent identities.
-3. **🛡️ Permission Matrix**: Role-to-tool permission grid and catalog of registered capabilities with baseline risk tiers.
-4. **⚖️ Policy Evaluation**: Interactive workbench to simulate tool calls and inspect decisions (`ALLOW`, `DENY`, `REQUIRE_APPROVAL`).
-5. **✋ Approval Center**: Review paused sensitive actions, view requested arguments, and click to Approve or Reject with reviewer notes.
-6. **📜 Audit Logs**: Real-time audit trail with a **Verify Hash Chain Integrity** button that cryptographically checks every block.
-7. **🧪 AI Agent Playground**: Interactive sandbox where you give natural language instructions to an agent and watch AgentGuard intercept the planned tool calls in real time.
-
----
-
 ## 🔒 Security Principles
 
 - **Zero-Trust for AI**: Treat all LLM outputs as untrusted user input. Never execute raw tool calls directly without backend validation.
 - **Fail-Safe Defaults**: Any action, tool, or parameter not explicitly allowed is denied by default.
 - **Separation of Duties**: AI agents propose; the backend governance engine verifies; humans authorize high-consequence operations.
 - **Non-Repudiation**: Append-only audit logs with SHA-256 hash chaining guarantee tamper evidence.
-
----
-
-## 🔮 Limitations & Future Enhancements
-
-- **Fine-Grained Semantic Guardrails**: Incorporating embeddings-based semantic similarity to detect sophisticated prompt injection variants.
-- **Multi-Tenant Organizations**: Adding workspace-level tenancy and multi-role reviewer groups.
-- **Distributed Database Adapters**: PostgreSQL adapter with row-level security (RLS) for multi-node deployments.
-- **OpenTelemetry Export**: Native OTel instrumentation for enterprise SIEM ingestion (Splunk, Datadog).
 
 ---
 

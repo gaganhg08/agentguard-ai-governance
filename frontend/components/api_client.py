@@ -1,5 +1,4 @@
 import json
-import requests
 from typing import Any, Optional
 from backend.database import SessionLocal
 from backend.agent_service import AgentService
@@ -8,26 +7,16 @@ from backend.approval_service import ApprovalService
 from backend.audit_service import AuditService
 from backend.mock_agent import MockAIAgent
 from backend.guardrails import REGISTERED_TOOLS
-from backend.models import Permission
-
-API_BASE = "http://127.0.0.1:8000/api"
+from backend.models import Permission, PolicyRule, Agent
+from backend.config import settings
 
 class GovernanceClient:
     """
-    Unified client providing seamless access to AgentGuard services.
-    Attempts HTTP to FastAPI backend first; gracefully falls back to direct DB session
-    if the standalone HTTP server is offline.
+    Enterprise Data & Service Gateway for AgentGuard UI.
+    Uses direct database transactions with ACID compliance.
     """
 
-    @classmethod
-    def _is_server_online(cls) -> bool:
-        try:
-            r = requests.get("http://127.0.0.1:8000/health", timeout=0.8)
-            return r.status_code == 200
-        except Exception:
-            return False
-
-    # Agents
+    # --- AGENT FLEET ---
     @classmethod
     def get_agents(cls) -> list[dict[str, Any]]:
         db = SessionLocal()
@@ -65,7 +54,68 @@ class GovernanceClient:
         finally:
             db.close()
 
-    # Permissions & Tools
+    @classmethod
+    def delete_agent(cls, agent_id: str) -> bool:
+        db = SessionLocal()
+        try:
+            return AgentService.delete_agent(db, agent_id)
+        finally:
+            db.close()
+
+    # --- SECURITY POLICIES ---
+    @classmethod
+    def get_policies(cls) -> list[dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            rules = db.query(PolicyRule).order_by(PolicyRule.priority.asc()).all()
+            return [
+                {
+                    "id": r.id,
+                    "name": r.name,
+                    "description": r.description,
+                    "target_tool": r.target_tool,
+                    "condition_type": r.condition_type,
+                    "condition_value": r.condition_value,
+                    "action": r.action,
+                    "priority": r.priority,
+                    "is_active": r.is_active
+                }
+                for r in rules
+            ]
+        finally:
+            db.close()
+
+    @classmethod
+    def create_policy(cls, name: str, description: str, target_tool: str, condition_type: str, condition_value: str, action: str, priority: int) -> None:
+        db = SessionLocal()
+        try:
+            new_rule = PolicyRule(
+                name=name,
+                description=description,
+                target_tool=target_tool,
+                condition_type=condition_type,
+                condition_value=condition_value,
+                action=action,
+                priority=priority,
+                is_active=True
+            )
+            db.add(new_rule)
+            db.commit()
+        finally:
+            db.close()
+
+    @classmethod
+    def toggle_policy(cls, rule_id: int) -> None:
+        db = SessionLocal()
+        try:
+            rule = db.query(PolicyRule).filter(PolicyRule.id == rule_id).first()
+            if rule:
+                rule.is_active = not rule.is_active
+                db.commit()
+        finally:
+            db.close()
+
+    # --- PERMISSIONS & ROLES ---
     @classmethod
     def get_permissions(cls) -> list[dict[str, Any]]:
         db = SessionLocal()
@@ -77,7 +127,7 @@ class GovernanceClient:
                     "role": p.role,
                     "tool_name": p.tool_name,
                     "action_type": p.action_type,
-                    "max_amount": p.max_amount,
+                    "max_amount": p.max_amount if p.max_amount else "Unlimited",
                     "requires_approval": p.requires_approval
                 }
                 for p in perms
@@ -86,10 +136,39 @@ class GovernanceClient:
             db.close()
 
     @classmethod
+    def add_permission(cls, role: str, tool_name: str, action_type: str, max_amount: Optional[float], requires_approval: bool) -> None:
+        db = SessionLocal()
+        try:
+            perm = Permission(
+                role=role,
+                tool_name=tool_name,
+                action_type=action_type,
+                max_amount=max_amount,
+                requires_approval=requires_approval
+            )
+            db.add(perm)
+            db.commit()
+        finally:
+            db.close()
+
+    @classmethod
     def get_tools(cls) -> dict[str, Any]:
         return REGISTERED_TOOLS
 
-    # Policy Evaluation
+    # --- GUARDRAILS CONFIG ---
+    @classmethod
+    def get_guardrail_config(cls) -> dict[str, Any]:
+        return {
+            "injection_keywords": settings.INJECTION_KEYWORDS,
+            "sensitive_tools": list(settings.SENSITIVE_TOOLS),
+            "refund_threshold": settings.REFUND_APPROVAL_THRESHOLD,
+            "payment_threshold": settings.PAYMENT_APPROVAL_THRESHOLD,
+            "sql_filter_enabled": True,
+            "shell_filter_enabled": True,
+            "default_deny": True
+        }
+
+    # --- POLICY EVALUATION ---
     @classmethod
     def evaluate_policy(cls, agent_id: str, tool_name: str, parameters: dict[str, Any]) -> dict[str, Any]:
         db = SessionLocal()
@@ -106,7 +185,7 @@ class GovernanceClient:
         finally:
             db.close()
 
-    # Approvals
+    # --- APPROVAL CENTER ---
     @classmethod
     def get_pending_approvals(cls) -> list[dict[str, Any]]:
         db = SessionLocal()
@@ -130,6 +209,29 @@ class GovernanceClient:
             db.close()
 
     @classmethod
+    def get_all_approvals(cls) -> list[dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            reqs = ApprovalService.list_all_requests(db)
+            return [
+                {
+                    "id": r.id,
+                    "agent_id": r.agent_id,
+                    "agent_name": r.agent_name,
+                    "tool_name": r.tool_name,
+                    "parameters": json.loads(r.parameters) if r.parameters else {},
+                    "status": r.status,
+                    "reason": r.reason,
+                    "reviewer": r.reviewer or "—",
+                    "reviewed_at": r.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if r.reviewed_at else "—",
+                    "created_at": r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else ""
+                }
+                for r in reqs
+            ]
+        finally:
+            db.close()
+
+    @classmethod
     def review_approval(cls, request_id: str, reviewer: str, decision: str, notes: str) -> None:
         db = SessionLocal()
         try:
@@ -137,7 +239,7 @@ class GovernanceClient:
         finally:
             db.close()
 
-    # Audit Logs
+    # --- AUDIT TRAIL ---
     @classmethod
     def get_audit_logs(cls, limit: int = 150) -> list[dict[str, Any]]:
         db = SessionLocal()
@@ -157,6 +259,7 @@ class GovernanceClient:
                     "parameters": json.loads(l.parameters) if l.parameters else {},
                     "approver": l.approver or "N/A",
                     "execution_status": l.execution_status,
+                    "previous_hash": l.previous_hash,
                     "current_hash": l.current_hash
                 }
                 for l in logs
@@ -172,7 +275,7 @@ class GovernanceClient:
         finally:
             db.close()
 
-    # Playground
+    # --- AI PLAYGROUND ---
     @classmethod
     def run_mock_agent(cls, agent_id: str, prompt: str) -> dict[str, Any]:
         db = SessionLocal()
