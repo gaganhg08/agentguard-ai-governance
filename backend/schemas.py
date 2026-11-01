@@ -111,6 +111,7 @@ class ApprovalRequestResponse(BaseModel):
     agent_name: str
     agent_role: str
     tool_name: str
+    resource: Optional[str] = "System / General"
     parameters: dict[str, Any]
     status: str
     reason: str
@@ -131,6 +132,7 @@ class AuditLogResponse(BaseModel):
     agent_name: str
     agent_role: str
     tool_name: str
+    resource: Optional[str] = "System / General"
     action_type: str
     parameters: dict[str, Any]
     decision: str

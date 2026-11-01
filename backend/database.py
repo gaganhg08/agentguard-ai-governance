@@ -18,6 +18,20 @@ def get_db():
     finally:
         db.close()
 
+from sqlalchemy import text
+
 def init_db():
     from backend import models
     Base.metadata.create_all(bind=engine)
+    # Ensure migration columns exist on existing databases
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE audit_logs ADD COLUMN resource VARCHAR(128) DEFAULT 'System / General'"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE approval_requests ADD COLUMN resource VARCHAR(128) DEFAULT 'System / General'"))
+            conn.commit()
+        except Exception:
+            pass

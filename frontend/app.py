@@ -1116,60 +1116,200 @@ elif "7. Human Approvals" in nav_selection:
     st.markdown("""
         <div class="page-header">
             <div class="page-title">✋ Human-in-the-Loop Approval Center</div>
-            <div class="page-subtitle">Review, authorize, or reject sensitive AI agent actions paused by policy thresholds.</div>
+            <div class="page-subtitle">Dual-control governance for high-risk operations. Review, authorize, or reject sensitive AI agent actions paused by security policies.</div>
         </div>
     """, unsafe_allow_html=True)
 
     pending = GovernanceClient.get_pending_approvals()
-
-    if not pending:
-        st.success("🎉 All high-risk actions cleared. No pending reviews in the queue.")
-    else:
-        st.markdown(f"**{len(pending)} pending action(s) requiring human authorization:**")
-
-        for req in pending:
-            st.markdown('<div class="pro-card">', unsafe_allow_html=True)
-            c_r1, c_r2 = st.columns([2.5, 1.5])
-            with c_r1:
-                st.markdown(f"### Request ID: `{req['id']}`")
-                st.markdown(f"**Agent:** {req['agent_name']} (`{req['agent_id']}`) &nbsp;|&nbsp; **Role:** `{req['agent_role']}`")
-                st.markdown(f"**Target Tool:** `{req['tool_name']}`")
-                st.markdown(f"**Pause Reason:** {req['reason']}")
-                st.markdown("**Requested Tool Arguments:**")
-                st.json(req["parameters"])
-
-            with c_r2:
-                st.write("**Human Authorization Action**")
-                reviewer_id = st.text_input("Human Reviewer Username", value="security_lead_alice", key=f"rev_{req['id']}")
-                review_note = st.text_input("Reviewer Notes", value="Verified maintenance window & transaction", key=f"note_{req['id']}")
-
-                st.caption("⚠️ Security Rule: Agents cannot approve their own actions.")
-                b_appr, b_rej = st.columns(2)
-                with b_appr:
-                    if st.button("Approve ✅", key=f"btn_app_{req['id']}", type="primary", use_container_width=True):
-                        try:
-                            GovernanceClient.review_approval(req["id"], reviewer_id, "APPROVE", review_note)
-                            st.success("Action approved!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(str(e))
-                with b_rej:
-                    if st.button("Reject ❌", key=f"btn_rej_{req['id']}", use_container_width=True):
-                        try:
-                            GovernanceClient.review_approval(req["id"], reviewer_id, "REJECT", review_note)
-                            st.warning("Action rejected.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(str(e))
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    # Historical Approvals Table
-    st.markdown("### 📋 Historical Approval Decisions")
     all_apprs = GovernanceClient.get_all_approvals()
-    if all_apprs:
-        df_all = pd.DataFrame(all_apprs)
-        df_all.columns = ["Request ID", "Agent ID", "Agent Name", "Target Tool", "Parameters", "Status", "Pause Reason", "Reviewer", "Reviewed At", "Created At"]
-        st.dataframe(df_all[["Request ID", "Agent Name", "Target Tool", "Status", "Reviewer", "Reviewed At"]], use_container_width=True, hide_index=True)
+
+    total_pending = len(pending)
+    total_approved = sum(1 for a in all_apprs if a["status"] == "APPROVED")
+    total_rejected = sum(1 for a in all_apprs if a["status"] == "REJECTED")
+
+    # Top KPI Metrics Row
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.markdown(f"""
+            <div class="metric-card-pro {'warn-card' if total_pending > 0 else ''}">
+                <div class="metric-label">Pending Reviews</div>
+                <div class="metric-value" style="color: {'#D97706' if total_pending > 0 else '#0F172A'};">{total_pending}</div>
+                <div class="metric-sub">Awaiting Human Sign-off</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with m2:
+        st.markdown(f"""
+            <div class="metric-card-pro">
+                <div class="metric-label">Approved Actions</div>
+                <div class="metric-value" style="color: #059669;">{total_approved}</div>
+                <div class="metric-sub">Authorized by Reviewers</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with m3:
+        st.markdown(f"""
+            <div class="metric-card-pro">
+                <div class="metric-label">Rejected Actions</div>
+                <div class="metric-value" style="color: #DC2626;">{total_rejected}</div>
+                <div class="metric-sub">Blocked by Reviewers</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with m4:
+        st.markdown("""
+            <div class="metric-card-pro">
+                <div class="metric-label">Dual-Control Policy</div>
+                <div class="metric-value" style="font-size: 1.3rem; color: #2563EB;">ENFORCED</div>
+                <div class="metric-sub">Self-Approval Strictly Barred</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    tab_pending, tab_history = st.tabs([
+        f"📥 Pending Approval Queue ({total_pending})",
+        f"📋 Historical Review Decisions ({len(all_apprs)})"
+    ])
+
+    # -------------------------------------------------------------------------
+    # TAB 1: PENDING APPROVAL QUEUE
+    # -------------------------------------------------------------------------
+    with tab_pending:
+        if not pending:
+            st.markdown("""
+                <div class="pro-card" style="text-align: center; padding: 40px 20px;">
+                    <div style="font-size: 2.8rem; margin-bottom: 8px;">🎉</div>
+                    <div style="font-weight: 700; font-size: 1.15rem; color: #0F172A;">All High-Risk Actions Cleared</div>
+                    <div style="color: #64748B; font-size: 0.9rem; margin-top: 4px;">There are currently zero pending approval requests in the security queue.</div>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"##### Showing {total_pending} Pending Action(s) Awaiting Review")
+
+            for req in pending:
+                st.markdown('<div class="pro-card" style="border-left: 4px solid #F59E0B;">', unsafe_allow_html=True)
+                c_r1, c_r2 = st.columns([1.6, 1.2])
+
+                with c_r1:
+                    st.markdown(f"#### 🎫 Request ID: `{req['id']}`")
+                    st.caption(f"Created: {req.get('created_at', 'Just now')} UTC")
+
+                    # Metadata details
+                    st.markdown(f"""
+                        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:12px; margin-bottom:12px;">
+                            <div style="font-size:0.85rem; margin-bottom:4px;"><b>Requesting Agent:</b> {req['agent_name']} (<code>{req['agent_id']}</code>)</div>
+                            <div style="font-size:0.85rem; margin-bottom:4px;"><b>Assigned Role:</b> <span class="badge-pill badge-active">{req['agent_role']}</span></div>
+                            <div style="font-size:0.85rem; margin-bottom:4px;"><b>Requested Action:</b> <code>{req['tool_name']}</code></div>
+                            <div style="font-size:0.85rem;"><b>Target Resource:</b> <code>{req.get('resource', 'System / General')}</code></div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown(f"""
+                        <div style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+                            <div style="font-size:0.75rem; font-weight:700; color:#92400E; text-transform:uppercase;">Pause Justification / Trigger Policy</div>
+                            <div style="font-size:0.88rem; color:#78350F; margin-top:2px;">{req['reason']}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown("**Action Parameters Payload:**")
+                    st.json(req["parameters"])
+
+                with c_r2:
+                    st.markdown("#### ✍️ Dual-Control Authorization Console")
+                    st.caption("Authorized reviewers must verify parameters before making a decision.")
+
+                    rev_input = st.text_input(
+                        "Human Reviewer Identity",
+                        value="security_lead_alice",
+                        key=f"rev_{req['id']}",
+                        help="Enter your username or email for the audit log"
+                    )
+
+                    note_input = st.text_area(
+                        "Review Justification / Decision Notes",
+                        value="Verified operational request and maintenance window authorization.",
+                        height=90,
+                        key=f"note_{req['id']}",
+                        help="Document justification for approval or rejection"
+                    )
+
+                    st.markdown("""
+                        <div style="background:#FEF2F2; border:1px solid #FECACA; border-radius:6px; padding:8px 12px; margin-bottom:14px; font-size:0.78rem; color:#991B1B;">
+                            ⚠️ <b>Dual-Control Rule:</b> An AI agent cannot approve its own action! Submissions matching the agent identity are automatically blocked.
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    btn_c1, btn_c2 = st.columns(2)
+                    with btn_c1:
+                        if st.button("Approve Action ✅", key=f"btn_app_{req['id']}", type="primary", use_container_width=True):
+                            try:
+                                GovernanceClient.review_approval(req["id"], rev_input.strip(), "APPROVE", note_input.strip())
+                                st.success(f"Request #{req['id']} successfully APPROVED and executed!")
+                                st.rerun()
+                            except PermissionError as pe:
+                                st.error(str(pe))
+                            except Exception as ex:
+                                st.error(f"Error: {str(ex)}")
+
+                    with btn_c2:
+                        if st.button("Reject Action ❌", key=f"btn_rej_{req['id']}", use_container_width=True):
+                            try:
+                                GovernanceClient.review_approval(req["id"], rev_input.strip(), "REJECT", note_input.strip())
+                                st.warning(f"Request #{req['id']} was REJECTED and execution blocked.")
+                                st.rerun()
+                            except PermissionError as pe:
+                                st.error(str(pe))
+                            except Exception as ex:
+                                st.error(f"Error: {str(ex)}")
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # TAB 2: HISTORICAL APPROVAL DECISIONS
+    # -------------------------------------------------------------------------
+    with tab_history:
+        if not all_apprs:
+            st.info("No approval records found in history.")
+        else:
+            col_hf1, col_hf2 = st.columns([1, 2])
+            with col_hf1:
+                status_filter = st.selectbox("Filter by Decision Status", ["All", "PENDING", "APPROVED", "REJECTED"], key="hist_status_filter")
+            with col_hf2:
+                search_hist = st.text_input("Search Approvals (by Agent, Tool, Reviewer, or ID)", key="hist_search_filter")
+
+            filtered_hist = all_apprs
+            if status_filter != "All":
+                filtered_hist = [a for a in filtered_hist if a["status"] == status_filter]
+            if search_hist.strip():
+                sh = search_hist.strip().lower()
+                filtered_hist = [
+                    a for a in filtered_hist
+                    if sh in a["id"].lower()
+                    or sh in a["agent_name"].lower()
+                    or sh in a["agent_id"].lower()
+                    or sh in a["tool_name"].lower()
+                    or sh in a.get("reviewer", "").lower()
+                ]
+
+            st.caption(f"Displaying {len(filtered_hist)} of {len(all_apprs)} historical approval requests")
+
+            # Table representation
+            table_rows = []
+            for h in filtered_hist:
+                status_icon = "🟢 APPROVED" if h["status"] == "APPROVED" else ("🔴 REJECTED" if h["status"] == "REJECTED" else "🟡 PENDING")
+                table_rows.append({
+                    "Request ID": h["id"],
+                    "Status": status_icon,
+                    "Agent Name": h["agent_name"],
+                    "Role": h.get("agent_role", "—"),
+                    "Target Action": h["tool_name"],
+                    "Target Resource": h.get("resource", "System / General"),
+                    "Human Reviewer": h.get("reviewer", "—"),
+                    "Reviewed At": h.get("reviewed_at", "—"),
+                    "Created At": h.get("created_at", "—"),
+                    "Justification": h.get("reviewer_notes", "—")
+                })
+
+            df_hist_table = pd.DataFrame(table_rows)
+            st.dataframe(df_hist_table, use_container_width=True, hide_index=True)
 
 
 # =============================================================================
@@ -1179,34 +1319,206 @@ elif "8. Audit Logs" in nav_selection:
     st.markdown("""
         <div class="page-header">
             <div class="page-title">📜 Tamper-Evident Cryptographic Audit Trail</div>
-            <div class="page-subtitle">Immutable append-only ledger of every policy interception, evaluation, and human decision.</div>
+            <div class="page-subtitle">Immutable append-only ledger of every policy interception, evaluation, and human decision. Protected by SHA-256 cryptographic hash chaining.</div>
         </div>
     """, unsafe_allow_html=True)
 
-    col_btn_ver, col_btn_exp = st.columns([1, 1])
-    with col_btn_ver:
-        if st.button("🔒 Verify Hash Chain Cryptographic Integrity", type="primary"):
-            integrity = GovernanceClient.verify_audit_integrity()
-            if integrity["is_valid"]:
-                st.success(f"✅ Cryptographic Hash Chain Valid: {integrity['message']}")
-            else:
-                st.error(f"❌ TAMPER DETECTED: {integrity['message']}")
+    # Compliance and Immutability Banner
+    st.markdown("""
+        <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:10px; padding:14px 18px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-weight:700; color:#166534; font-size:1.02rem;">🔒 Append-Only Immutable Security Ledger</div>
+                    <div style="font-size:0.85rem; color:#15803D; margin-top:3px;">
+                        All security decisions (<code>ALLOW</code>, <code>DENY</code>, <code>REQUIRE_APPROVAL</code>) and human authorizations are permanently committed to an immutable ledger chained via SHA-256 hashes. Normal users and administrators are strictly prohibited from modifying or deleting records.
+                    </div>
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    logs = GovernanceClient.get_audit_logs(limit=300)
-    if logs:
-        df_logs = pd.DataFrame(logs)
-        
-        # Download as CSV button
-        csv_data = df_logs.to_csv(index=False).encode('utf-8')
-        with col_btn_exp:
-            st.download_button("📥 Export Audit Logs (CSV)", data=csv_data, file_name=f"agentguard_audit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", mime="text/csv")
+    # Action Toolbar: Cryptographic Integrity Verification & Export
+    col_v1, col_v2 = st.columns([1.2, 1])
+    with col_v1:
+        verify_clicked = st.button("🔒 Run Cryptographic Hash-Chain Integrity Audit", type="primary")
+    with col_v2:
+        # Placeholder for export button populated below
+        export_placeholder = st.empty()
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        display_df = df_logs[["id", "timestamp", "agent_name", "tool_name", "decision", "risk_level", "reason", "execution_status", "current_hash"]].copy()
-        display_df.columns = ["ID", "Timestamp", "Agent Name", "Target Tool", "Decision", "Risk", "Reason", "Status", "SHA-256 Hash"]
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+    if verify_clicked:
+        integrity = GovernanceClient.verify_audit_integrity()
+        if integrity["is_valid"]:
+            st.success(f"✅ Cryptographic Chain Intact: {integrity['message']}")
+        else:
+            st.error(f"❌ TAMPER DETECTED: {integrity['message']}")
+
+    # -------------------------------------------------------------------------
+    # SEARCH & FILTER TOOLBAR
+    # -------------------------------------------------------------------------
+    st.markdown("#### 🔍 Filter & Search Audit Records")
+
+    agents = GovernanceClient.get_agents()
+    agent_filter_options = ["All Agents"] + [f"{a['name']} ({a['id']})" for a in agents]
+
+    col_flt1, col_flt2, col_flt3, col_flt4 = st.columns([1.5, 1, 1, 1.2])
+
+    with col_flt1:
+        search_query = st.text_input("Global Search", placeholder="Search by agent, tool, resource, reason, or hash...", key="audit_search")
+    with col_flt2:
+        sel_agent_filter = st.selectbox("Filter by Agent", agent_filter_options, key="audit_agent_filter")
+    with col_flt3:
+        sel_decision_filter = st.selectbox("Policy Decision", ["All Decisions", "ALLOW", "DENY", "REQUIRE_APPROVAL"], key="audit_dec_filter")
+    with col_flt4:
+        date_sort = st.selectbox("Order by", ["Newest First (Descending)", "Oldest First (Ascending)"], key="audit_sort")
+
+    # Map filters
+    target_agent_id = None
+    if sel_agent_filter != "All Agents":
+        target_agent_id = sel_agent_filter.split("(")[1].split(")")[0].strip()
+
+    target_decision = None
+    if sel_decision_filter != "All Decisions":
+        target_decision = sel_decision_filter
+
+    # Fetch logs from DB
+    raw_logs = GovernanceClient.get_audit_logs(
+        agent_id=target_agent_id,
+        decision=target_decision,
+        search_query=search_query.strip() if search_query else None,
+        limit=500
+    )
+
+    if date_sort == "Oldest First (Ascending)":
+        raw_logs = sorted(raw_logs, key=lambda x: x["id"])
+
+    # Populate Export Button
+    if raw_logs:
+        df_export = pd.DataFrame(raw_logs)
+        csv_data = df_export.to_csv(index=False).encode('utf-8')
+        with export_placeholder:
+            st.download_button(
+                "📥 Export Filtered Audit Trail (CSV)",
+                data=csv_data,
+                file_name=f"agentguard_audit_trail_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+    # Metrics Summary Row for Filtered Events
+    total_logs = len(raw_logs)
+    count_allow = sum(1 for l in raw_logs if l["decision"] == "ALLOW")
+    count_deny = sum(1 for l in raw_logs if l["decision"] == "DENY")
+    count_appr = sum(1 for l in raw_logs if l["decision"] == "REQUIRE_APPROVAL")
+
+    c_cnt1, c_cnt2, c_cnt3, c_cnt4 = st.columns(4)
+    with c_cnt1:
+        st.markdown(f"""
+            <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:8px; padding:10px 14px; text-align:center;">
+                <div style="font-size:0.75rem; color:#64748B; font-weight:600; text-transform:uppercase;">Total Records</div>
+                <div style="font-size:1.4rem; font-weight:700; color:#0F172A;">{total_logs}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with c_cnt2:
+        st.markdown(f"""
+            <div style="background:#ECFDF5; border:1px solid #A7F3D0; border-radius:8px; padding:10px 14px; text-align:center;">
+                <div style="font-size:0.75rem; color:#065F46; font-weight:600; text-transform:uppercase;">ALLOW Decisions</div>
+                <div style="font-size:1.4rem; font-weight:700; color:#047857;">{count_allow}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with c_cnt3:
+        st.markdown(f"""
+            <div style="background:#FEF2F2; border:1px solid #FECACA; border-radius:8px; padding:10px 14px; text-align:center;">
+                <div style="font-size:0.75rem; color:#991B1B; font-weight:600; text-transform:uppercase;">DENY Decisions</div>
+                <div style="font-size:1.4rem; font-weight:700; color:#DC2626;">{count_deny}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with c_cnt4:
+        st.markdown(f"""
+            <div style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:8px; padding:10px 14px; text-align:center;">
+                <div style="font-size:0.75rem; color:#92400E; font-weight:600; text-transform:uppercase;">REQUIRE_APPROVAL</div>
+                <div style="font-size:1.4rem; font-weight:700; color:#D97706;">{count_appr}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if not raw_logs:
+        st.info("No audit entries match the active search and filter criteria.")
     else:
-        st.info("No audit records in ledger.")
+        # Format table data
+        formatted_table = []
+        for l in raw_logs:
+            dec_badge = "🟢 ALLOW" if l["decision"] == "ALLOW" else ("🔴 DENY" if l["decision"] == "DENY" else "🟡 REQUIRE_APPROVAL")
+            formatted_table.append({
+                "ID": l["id"],
+                "Timestamp (UTC)": l["timestamp"],
+                "Agent": f"{l['agent_name']} ({l['agent_id']})",
+                "Action": l["tool_name"],
+                "Target Resource": l.get("resource", "System / General"),
+                "Policy Decision": dec_badge,
+                "Risk": l["risk_level"],
+                "Execution Status": l["execution_status"],
+                "Reason": l["reason"],
+                "Approver": l.get("approver", "—"),
+                "SHA-256 Hash": l["current_hash"][:16] + "..."
+            })
+
+        df_display = pd.DataFrame(formatted_table)
+        st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+        # Deep-Dive Event Inspector
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("#### 🔬 Cryptographic Event Inspector")
+        st.caption("Select any audit log record to inspect its full cryptographic payload, parameters, and tamper-evident hash links.")
+
+        record_ids = [l["id"] for l in raw_logs]
+        chosen_id = st.selectbox("Select Audit Record ID to Inspect", record_ids, index=0)
+        selected_log = next((l for l in raw_logs if l["id"] == chosen_id), None)
+
+        if selected_log:
+            st.markdown('<div class="pro-card">', unsafe_allow_html=True)
+            insp_c1, insp_c2 = st.columns([1.5, 1])
+
+            with insp_c1:
+                st.markdown(f"### Audit Entry #{selected_log['id']}")
+                st.markdown(f"**Timestamp (UTC):** `{selected_log['timestamp']}`")
+                st.markdown(f"**Agent Identity:** {selected_log['agent_name']} (`{selected_log['agent_id']}`) &nbsp;|&nbsp; Role: `{selected_log['agent_role']}`")
+                st.markdown(f"**Requested Action & Resource:** `tool: {selected_log['tool_name']}` on `resource: {selected_log.get('resource', 'System / General')}`")
+                st.markdown(f"**Verdict:** `{selected_log['decision']}` &nbsp;|&nbsp; Status: `{selected_log['execution_status']}` &nbsp;|&nbsp; Risk: `{selected_log['risk_level']}`")
+                st.markdown(f"**Policy Reason:** {selected_log['reason']}")
+                if selected_log.get("approver") and selected_log["approver"] != "N/A":
+                    st.markdown(f"**Human Sign-Off:** Reviewer `{selected_log['approver']}`")
+
+                st.markdown("**Parameters JSON:**")
+                st.json(selected_log["parameters"])
+
+            with insp_c2:
+                st.markdown("#### 🔗 Cryptographic Chain Proof")
+                st.markdown(f"""
+                    <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:12px; margin-bottom:10px;">
+                        <div style="font-size:0.72rem; color:#64748B; font-weight:700; text-transform:uppercase;">Previous SHA-256 Hash</div>
+                        <div style="font-family:monospace; font-size:0.75rem; color:#0F172A; word-break:break-all; margin-top:2px;">
+                            {selected_log['previous_hash']}
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                st.markdown(f"""
+                    <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; padding:12px;">
+                        <div style="font-size:0.72rem; color:#166534; font-weight:700; text-transform:uppercase;">Current SHA-256 Hash</div>
+                        <div style="font-family:monospace; font-size:0.75rem; color:#14532D; word-break:break-all; margin-top:2px;">
+                            {selected_log['current_hash']}
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                st.markdown("""
+                    <div style="margin-top:12px; font-size:0.78rem; color:#64748B;">
+                        Each entry's hash cryptographically seals its predecessor. Any modification to parameters, decisions, or timestamps invalidates the entire chain downstream.
+                    </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =============================================================================

@@ -215,6 +215,7 @@ def get_pending_approvals(db: Session = Depends(get_db)):
             agent_name=r.agent_name,
             agent_role=r.agent_role,
             tool_name=r.tool_name,
+            resource=r.resource or "System / General",
             parameters=json.loads(r.parameters) if r.parameters else {},
             status=r.status,
             reason=r.reason,
@@ -237,6 +238,7 @@ def list_all_approvals(db: Session = Depends(get_db)):
             agent_name=r.agent_name,
             agent_role=r.agent_role,
             tool_name=r.tool_name,
+            resource=r.resource or "System / General",
             parameters=json.loads(r.parameters) if r.parameters else {},
             status=r.status,
             reason=r.reason,
@@ -264,6 +266,7 @@ def review_approval(request_id: str, review_in: ApprovalReviewRequest, db: Sessi
             agent_name=req.agent_name,
             agent_role=req.agent_role,
             tool_name=req.tool_name,
+            resource=req.resource or "System / General",
             parameters=json.loads(req.parameters) if req.parameters else {},
             status=req.status,
             reason=req.reason,
@@ -286,10 +289,11 @@ def review_approval(request_id: str, review_in: ApprovalReviewRequest, db: Sessi
 def get_audit_logs(
     agent_id: Optional[str] = None,
     decision: Optional[str] = None,
-    limit: int = Query(default=100, ge=1, le=500),
+    search: Optional[str] = None,
+    limit: int = Query(default=250, ge=1, le=500),
     db: Session = Depends(get_db)
 ):
-    logs = AuditService.get_logs(db, agent_id=agent_id, decision=decision, limit=limit)
+    logs = AuditService.get_logs(db, agent_id=agent_id, decision=decision, search_query=search, limit=limit)
     results = []
     for l in logs:
         results.append(AuditLogResponse(
@@ -299,6 +303,7 @@ def get_audit_logs(
             agent_name=l.agent_name,
             agent_role=l.agent_role,
             tool_name=l.tool_name,
+            resource=l.resource or "System / General",
             action_type=l.action_type,
             parameters=json.loads(l.parameters) if l.parameters else {},
             decision=l.decision,

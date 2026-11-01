@@ -60,6 +60,7 @@ class PolicyEngine:
                     parameters=parameters,
                     decision="DENY",
                     reason=reason,
+                    resource=resource_target,
                     risk_level="HIGH",
                     execution_status="BLOCKED"
                 )
@@ -99,6 +100,7 @@ class PolicyEngine:
                     parameters=parameters,
                     decision="DENY",
                     reason=reason,
+                    resource=resource_target,
                     risk_level="MEDIUM",
                     execution_status="BLOCKED"
                 )
@@ -139,6 +141,7 @@ class PolicyEngine:
                     parameters=parameters,
                     decision="DENY",
                     reason=reason,
+                    resource=resource_target,
                     risk_level="HIGH",
                     execution_status="BLOCKED"
                 )
@@ -180,6 +183,7 @@ class PolicyEngine:
                     parameters=parameters,
                     decision="DENY",
                     reason=reason,
+                    resource=resource_target,
                     risk_level="CRITICAL",
                     guardrail_flags=guardrail_flags,
                     execution_status="BLOCKED"
@@ -221,6 +225,7 @@ class PolicyEngine:
                     parameters=parameters,
                     decision="DENY",
                     reason=reason,
+                    resource=resource_target,
                     risk_level="MEDIUM",
                     execution_status="BLOCKED"
                 )
@@ -252,6 +257,7 @@ class PolicyEngine:
                     parameters=parameters,
                     decision="DENY",
                     reason=reason,
+                    resource=resource_target,
                     risk_level="HIGH",
                     execution_status="BLOCKED"
                 )
@@ -296,6 +302,7 @@ class PolicyEngine:
                     parameters=parameters,
                     decision="DENY",
                     reason=reason,
+                    resource=resource_target,
                     risk_level="HIGH",
                     execution_status="BLOCKED"
                 )
@@ -355,6 +362,7 @@ class PolicyEngine:
                         parameters=parameters,
                         decision="DENY",
                         reason=reason,
+                        resource=resource_target,
                         risk_level="HIGH",
                         execution_status="BLOCKED"
                     )
@@ -391,6 +399,7 @@ class PolicyEngine:
                         parameters=parameters,
                         decision="DENY",
                         reason=reason,
+                        resource=resource_target,
                         risk_level="HIGH",
                         execution_status="BLOCKED"
                     )
@@ -448,7 +457,8 @@ class PolicyEngine:
                     agent_role=agent.role,
                     tool_name=tool_name,
                     parameters=parameters,
-                    reason=approval_reason
+                    reason=approval_reason,
+                    resource=resource_target
                 )
                 evaluation_trace.append({
                     "step": "Approval Gate",
@@ -464,6 +474,7 @@ class PolicyEngine:
                     parameters=parameters,
                     decision="REQUIRE_APPROVAL",
                     reason=approval_reason,
+                    resource=resource_target,
                     risk_level=risk_level,
                     execution_status="PENDING_APPROVAL"
                 )
@@ -501,6 +512,7 @@ class PolicyEngine:
                 parameters=parameters,
                 decision="ALLOW",
                 reason=allow_reason,
+                resource=resource_target,
                 risk_level=risk_level,
                 execution_status="EXECUTED"
             )
@@ -536,6 +548,7 @@ class PolicyEngine:
                     parameters=parameters,
                     decision="DENY",
                     reason=fallback_reason,
+                    resource=resource_target,
                     risk_level="CRITICAL",
                     execution_status="BLOCKED"
                 )

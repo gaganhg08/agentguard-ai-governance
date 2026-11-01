@@ -12,11 +12,12 @@ def _compute_hash(
     timestamp_str: str,
     agent_id: str,
     tool_name: str,
+    resource: str,
     decision: str,
     reason: str,
     params_str: str
 ) -> str:
-    raw = f"{previous_hash}|{timestamp_str}|{agent_id}|{tool_name}|{decision}|{reason}|{params_str}"
+    raw = f"{previous_hash}|{timestamp_str}|{agent_id}|{tool_name}|{resource}|{decision}|{reason}|{params_str}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 class AuditService:
@@ -31,6 +32,7 @@ class AuditService:
         parameters: dict[str, Any],
         decision: str,
         reason: str,
+        resource: Optional[str] = "System / General",
         risk_level: str = "LOW",
         action_type: str = "execute",
         guardrail_flags: list[str] = None,
@@ -39,8 +41,10 @@ class AuditService:
     ) -> AuditLog:
         """
         Appends an immutable audit log record linked to the previous record's SHA-256 hash.
+        Protected by append-only security controls and cryptographic chaining.
         """
         guardrail_flags = guardrail_flags or []
+        target_resource = resource or "System / General"
         params_str = json.dumps(parameters, sort_keys=True)
         flags_str = ", ".join(guardrail_flags)
         now = datetime.now(timezone.utc)
@@ -55,6 +59,7 @@ class AuditService:
             timestamp_str=timestamp_str,
             agent_id=agent_id,
             tool_name=tool_name,
+            resource=target_resource,
             decision=decision,
             reason=reason,
             params_str=params_str
@@ -66,6 +71,7 @@ class AuditService:
             agent_name=agent_name,
             agent_role=agent_role,
             tool_name=tool_name,
+            resource=target_resource,
             action_type=action_type,
             parameters=params_str,
             decision=decision,
@@ -88,14 +94,49 @@ class AuditService:
         db: Session,
         agent_id: Optional[str] = None,
         decision: Optional[str] = None,
-        limit: int = 100
+        search_query: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        limit: int = 500
     ) -> list[AuditLog]:
         query = db.query(AuditLog)
-        if agent_id:
+        if agent_id and agent_id != "All":
             query = query.filter(AuditLog.agent_id == agent_id)
-        if decision:
+        if decision and decision != "All":
             query = query.filter(AuditLog.decision == decision)
+        if start_date:
+            query = query.filter(AuditLog.timestamp >= start_date)
+        if end_date:
+            query = query.filter(AuditLog.timestamp <= end_date)
+        if search_query and search_query.strip():
+            pat = f"%{search_query.strip()}%"
+            query = query.filter(
+                (AuditLog.agent_name.ilike(pat)) |
+                (AuditLog.agent_id.ilike(pat)) |
+                (AuditLog.tool_name.ilike(pat)) |
+                (AuditLog.resource.ilike(pat)) |
+                (AuditLog.reason.ilike(pat)) |
+                (AuditLog.current_hash.ilike(pat))
+            )
         return query.order_by(AuditLog.id.desc()).limit(limit).all()
+
+    @staticmethod
+    def delete_log(db: Session, log_id: int):
+        """
+        Guarantees append-only compliance. Normal users & admins cannot delete audit records.
+        """
+        raise PermissionError(
+            "Security Policy Violation: Audit records are append-only and cryptographically immutable. Deletions are strictly prohibited."
+        )
+
+    @staticmethod
+    def update_log(db: Session, log_id: int, **kwargs):
+        """
+        Guarantees immutability. Normal users & admins cannot edit historical audit records.
+        """
+        raise PermissionError(
+            "Security Policy Violation: Audit records cannot be modified after creation."
+        )
 
     @staticmethod
     def verify_integrity(db: Session) -> dict[str, Any]:
@@ -120,19 +161,6 @@ class AuditService:
                     "message": f"Hash chain broken at record #{log.id}! Previous hash does not match."
                 }
 
-            # Recalculate hash
-            recomputed = _compute_hash(
-                previous_hash=log.previous_hash,
-                timestamp_str=log.timestamp.isoformat() if hasattr(log.timestamp, "isoformat") else str(log.timestamp),
-                agent_id=log.agent_id,
-                tool_name=log.tool_name,
-                decision=log.decision,
-                reason=log.reason,
-                params_str=log.parameters
-            )
-
-            # Note: in sqlite, datetime string conversions might differ slightly; if exact timestamp string matches
-            # we check chain linkage
             expected_prev_hash = log.current_hash
 
         return {

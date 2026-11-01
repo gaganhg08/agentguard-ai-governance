@@ -364,6 +364,7 @@ class GovernanceClient:
                     "agent_name": r.agent_name,
                     "agent_role": r.agent_role,
                     "tool_name": r.tool_name,
+                    "resource": r.resource or "System / General",
                     "parameters": json.loads(r.parameters) if r.parameters else {},
                     "reason": r.reason,
                     "status": r.status,
@@ -384,13 +385,17 @@ class GovernanceClient:
                     "id": r.id,
                     "agent_id": r.agent_id,
                     "agent_name": r.agent_name,
+                    "agent_role": r.agent_role,
                     "tool_name": r.tool_name,
+                    "resource": r.resource or "System / General",
                     "parameters": json.loads(r.parameters) if r.parameters else {},
                     "status": r.status,
                     "reason": r.reason,
                     "reviewer": r.reviewer or "—",
+                    "reviewer_notes": r.reviewer_notes or "—",
                     "reviewed_at": r.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if r.reviewed_at else "—",
-                    "created_at": r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else ""
+                    "created_at": r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else "",
+                    "execution_result": r.execution_result or "—"
                 }
                 for r in reqs
             ]
@@ -407,18 +412,36 @@ class GovernanceClient:
 
     # --- AUDIT TRAIL ---
     @classmethod
-    def get_audit_logs(cls, limit: int = 150) -> list[dict[str, Any]]:
+    def get_audit_logs(
+        cls,
+        agent_id: Optional[str] = None,
+        decision: Optional[str] = None,
+        search_query: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        limit: int = 500
+    ) -> list[dict[str, Any]]:
         db = SessionLocal()
         try:
-            logs = AuditService.get_logs(db, limit=limit)
+            logs = AuditService.get_logs(
+                db,
+                agent_id=agent_id,
+                decision=decision,
+                search_query=search_query,
+                start_date=start_date,
+                end_date=end_date,
+                limit=limit
+            )
             return [
                 {
                     "id": l.id,
                     "timestamp": l.timestamp.strftime("%Y-%m-%d %H:%M:%S") if l.timestamp else "",
+                    "timestamp_raw": l.timestamp,
                     "agent_id": l.agent_id,
                     "agent_name": l.agent_name,
                     "agent_role": l.agent_role,
                     "tool_name": l.tool_name,
+                    "resource": l.resource or "System / General",
                     "decision": l.decision,
                     "risk_level": l.risk_level,
                     "reason": l.reason,

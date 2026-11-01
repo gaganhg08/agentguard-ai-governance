@@ -16,7 +16,8 @@ class ApprovalService:
         agent_role: str,
         tool_name: str,
         parameters: dict[str, Any],
-        reason: str
+        reason: str,
+        resource: Optional[str] = "System / General"
     ) -> ApprovalRequest:
         req_id = f"appr-{uuid.uuid4().hex[:8]}"
         req = ApprovalRequest(
@@ -25,6 +26,7 @@ class ApprovalService:
             agent_name=agent_name,
             agent_role=agent_role,
             tool_name=tool_name,
+            resource=resource or "System / General",
             parameters=json.dumps(parameters),
             status="PENDING",
             reason=reason,
@@ -64,7 +66,7 @@ class ApprovalService:
 
         # CRITICAL SECURITY RULE: Agent cannot approve its own request
         cleaned_reviewer = reviewer.strip().lower()
-        if cleaned_reviewer in [req.agent_id.lower(), req.agent_name.lower(), "agent", "self"]:
+        if cleaned_reviewer in [req.agent_id.lower(), req.agent_name.lower(), "agent", "self", "bot"]:
             raise PermissionError(
                 f"Security Violation: Agent '{req.agent_id}' cannot approve its own action! Human reviewer required."
             )
@@ -80,7 +82,7 @@ class ApprovalService:
 
         if decision.upper() == "APPROVE":
             req.status = "APPROVED"
-            execution_msg = f"Action '{req.tool_name}' executed successfully under authorization from {req.reviewer}."
+            execution_msg = f"Action '{req.tool_name}' on '{req.resource}' executed successfully under authorization from {req.reviewer}."
             req.execution_result = json.dumps({"status": "SUCCESS", "message": execution_msg})
 
             # Record in append-only audit trail
@@ -90,6 +92,7 @@ class ApprovalService:
                 agent_name=req.agent_name,
                 agent_role=req.agent_role,
                 tool_name=req.tool_name,
+                resource=req.resource or "System / General",
                 parameters=parsed_params,
                 decision="ALLOW",
                 reason=f"Approved by human reviewer '{req.reviewer}'. Note: {req.reviewer_notes}",
@@ -99,7 +102,7 @@ class ApprovalService:
             )
         else:
             req.status = "REJECTED"
-            rejection_msg = f"Action '{req.tool_name}' rejected by {req.reviewer}. Reason: {req.reviewer_notes}"
+            rejection_msg = f"Action '{req.tool_name}' on '{req.resource}' rejected by {req.reviewer}. Reason: {req.reviewer_notes}"
             req.execution_result = json.dumps({"status": "REJECTED", "message": rejection_msg})
 
             AuditService.log_event(
@@ -108,6 +111,7 @@ class ApprovalService:
                 agent_name=req.agent_name,
                 agent_role=req.agent_role,
                 tool_name=req.tool_name,
+                resource=req.resource or "System / General",
                 parameters=parsed_params,
                 decision="DENY",
                 reason=f"Rejected by human reviewer '{req.reviewer}'. Note: {req.reviewer_notes}",

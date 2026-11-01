@@ -62,6 +62,7 @@ class ApprovalRequest(Base):
     agent_name = Column(String(128), nullable=False)
     agent_role = Column(String(64), nullable=False)
     tool_name = Column(String(64), nullable=False)
+    resource = Column(String(128), default="System / General")
     parameters = Column(Text, default="{}")                # JSON string
     status = Column(String(32), default="PENDING", index=True)  # PENDING, APPROVED, REJECTED
     reason = Column(Text, nullable=False)
@@ -83,6 +84,7 @@ class AuditLog(Base):
     agent_name = Column(String(128), nullable=False)
     agent_role = Column(String(64), nullable=False)
     tool_name = Column(String(64), nullable=False, index=True)
+    resource = Column(String(128), default="System / General", index=True)
     action_type = Column(String(32), default="execute")
     parameters = Column(Text, default="{}")
     decision = Column(String(32), nullable=False, index=True)   # ALLOW, DENY, REQUIRE_APPROVAL

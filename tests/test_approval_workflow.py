@@ -70,3 +70,61 @@ def test_agent_self_approval_blocked(db_session):
             decision="APPROVE"
         )
     assert "cannot approve its own action" in str(exc_info.value)
+
+def test_approval_request_records_resource_and_timestamp(db_session):
+    # Verify that resource and review timestamp are recorded
+    req = ApprovalService.create_request(
+        db=db_session,
+        agent_id="agent-finance-01",
+        agent_name="Financial Operations Bot",
+        agent_role="Finance",
+        tool_name="process_payment",
+        parameters={"recipient_account": "ACC-CORP", "amount": 3000.0},
+        reason="Disbursement exceeds ceiling",
+        resource="vault:finance-treasury"
+    )
+    assert req.resource == "vault:finance-treasury"
+    assert req.status == "PENDING"
+    assert req.reviewed_at is None
+
+    # Review request
+    reviewed = ApprovalService.review_request(
+        db=db_session,
+        request_id=req.id,
+        reviewer="cfo_sarah",
+        decision="APPROVE",
+        reviewer_notes="Verified invoice #9921 against vendor ledger"
+    )
+    assert reviewed.status == "APPROVED"
+    assert reviewed.reviewer == "cfo_sarah"
+    assert reviewed.reviewed_at is not None
+    assert "Verified invoice" in reviewed.reviewer_notes
+
+def test_approval_status_updated_in_database(db_session):
+    # Verify persistent database update
+    req = ApprovalService.create_request(
+        db=db_session,
+        agent_id="agent-it-01",
+        agent_name="Cloud DevOps Sentinel",
+        agent_role="IT Admin",
+        tool_name="modify_firewall",
+        parameters={"rule_action": "ALLOW", "port": 22},
+        reason="Sensitive network change"
+    )
+    req_id = req.id
+
+    # Review as REJECT
+    ApprovalService.review_request(
+        db=db_session,
+        request_id=req_id,
+        reviewer="secops_lead_carol",
+        decision="REJECT",
+        reviewer_notes="Port 22 SSH must not be opened directly"
+    )
+
+    # Fetch fresh from database
+    db_record = db_session.query(ApprovalRequest).filter(ApprovalRequest.id == req_id).first()
+    assert db_record is not None
+    assert db_record.status == "REJECTED"
+    assert db_record.reviewer == "secops_lead_carol"
+    assert "Port 22 SSH" in db_record.reviewer_notes
