@@ -73,7 +73,34 @@ AgentGuard features a modern, clean cybersecurity SaaS interface:
 
 ---
 
-## 🏗️ System Architecture
+## 📸 Application UI Screenshots
+
+### 1. Security & Governance Overview Dashboard
+![Overview Dashboard](docs/screenshots/overview.png)
+
+### 2. Autonomous AI Agent Playground & Tool Sandbox
+![AI Agent Playground](docs/screenshots/playground.png)
+
+### 3. Real-Time Policy Evaluation Workbench
+![Policy Evaluation](docs/screenshots/policy_evaluation.png)
+
+### 4. Dual-Control Human Approval Center
+![Human Approvals](docs/screenshots/approval_center.png)
+
+### 5. Role-Based Access Control (RBAC) Matrix
+![Permission Matrix](docs/screenshots/permission_matrix.png)
+
+### 6. Cryptographic SHA-256 Chained Audit Trail
+![Audit Logs](docs/screenshots/audit_logs.png)
+
+### 7. AI Agent Fleet Management & Directory
+![Agent Management](docs/screenshots/agent_management.png)
+
+---
+
+## 🏗️ System Architecture & Workflow
+
+### Decision Flowchart
 
 ```mermaid
 flowchart TD
@@ -105,6 +132,38 @@ flowchart TD
     Block3 --> Audit
     Block4 --> Audit
     Appr --> Audit
+```
+
+### End-to-End Interception Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User / Enterprise Operator
+    participant LLM as Autonomous AI Agent
+    participant Gateway as AgentGuard Policy Gateway
+    participant Guardrails as Threat Guardrails & Sanitizer
+    participant RBAC as Central RBAC Policy Engine
+    actor Reviewer as Human SecOps Reviewer
+    participant Tools as Authorized Tool System
+    participant Ledger as SHA-256 Cryptographic Audit Ledger
+
+    User->>LLM: Issue natural language task (e.g. "Refund $750 for ORD-9821")
+    LLM->>Gateway: Propose Tool Action (approve_refund, args, resource)
+    Note over Gateway: Central Interception: Agent cannot bypass Gateway
+    Gateway->>Guardrails: Scan for prompt injection, SQL injection, shell escapes
+    Guardrails-->>Gateway: Clean (No malicious signatures)
+    Gateway->>RBAC: Validate agent role, active status, tool permissions
+    RBAC-->>Gateway: RBAC Granted, but Action exceeds threshold ($750 > $500)
+    Gateway->>Ledger: Commit Audit Entry (Decision: REQUIRE_APPROVAL)
+    Gateway->>Reviewer: Queue Dual-Control Approval Ticket
+    Reviewer->>Gateway: Human Review: Authorize Action & Sign Off
+    Note over Reviewer,Gateway: Anti-Self-Approval Enforced: Agent cannot approve itself
+    Gateway->>Tools: Execute Action with Verified Parameters
+    Tools-->>Gateway: Tool Execution Payload
+    Gateway->>Ledger: Commit Audit Entry (Status: EXECUTED, Hash Chained)
+    Gateway-->>LLM: Controlled Execution Outcome
+    LLM-->>User: Final Verified Response
 ```
 
 ---
@@ -250,6 +309,32 @@ pytest tests/ -v
 - **Fail-Safe Defaults**: Any action, tool, or parameter not explicitly allowed is denied by default.
 - **Separation of Duties**: AI agents propose; the backend governance engine verifies; humans authorize high-consequence operations.
 - **Non-Repudiation**: Append-only audit logs with SHA-256 hash chaining guarantee tamper evidence.
+
+---
+
+## ⚠️ Security Limitations & Honest Threat Model
+
+While AgentGuard provides a powerful multi-layered defense architecture, production security teams should evaluate the following limitations:
+
+1. **Heuristic & Pattern-Based Guardrails**:
+   - The built-in prompt injection and sanitization filters rely on regular expressions, keyword heuristics, and shell/SQL pattern signatures.
+   - Advanced semantic evasion attacks, multilingual jailbreaks, or polymorphic token manipulations may bypass simple heuristic filters. For production enterprise deployments, AgentGuard is designed to be paired with semantic guardrail classifiers (e.g. Llama-Guard, NeMo Guardrails, or Azure AI Content Safety).
+
+2. **Embedded Single-Node Storage (SQLite)**:
+   - The platform uses SQLite for zero-configuration, self-contained local development and evaluation.
+   - SQLite enforces single-writer locking, making it unsuitable for horizontally scaled, multi-cluster agent systems under high concurrent transaction loads. Production environments should configure SQLAlchemy with PostgreSQL or MySQL.
+
+3. **Local Cryptographic Hash Chaining vs. Distributed SIEM**:
+   - The SHA-256 hash chaining reliably detects in-place record alterations, line deletions, or historical ledger modifications within the application layer.
+   - However, because the audit records and application reside on the same filesystem in local deployment, an adversary with root/OS-level file access could theoretically recalculate hashes. In production, AgentGuard audit trails should be forwarded to append-only WORM storage (e.g. AWS S3 Glacier Object Lock) or enterprise SIEM platforms (Splunk, Datadog).
+
+4. **Deterministic Mock Agent vs. LLM Non-Determinism**:
+   - The built-in mock agent operates deterministically and completely offline without paid API keys, providing 100% predictable test reproducibility.
+   - When integrating external generative LLMs (e.g. OpenAI GPT-4, Anthropic Claude, Google Gemini), output variance and unpredictable tool argument formats require strict Pydantic JSON schema pre-validation before passing parameters into AgentGuard's policy engine.
+
+5. **Human Reviewer Authentication**:
+   - The demo implementation accepts an operator identifier string in the UI for review sign-off.
+   - In production, human approval endpoints should be integrated with corporate SSO / SAML / OIDC providers (Okta, Azure AD, Google Workspace) with mandatory multi-factor authentication (MFA).
 
 ---
 

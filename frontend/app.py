@@ -1798,10 +1798,10 @@ elif "10. Settings" in nav_selection:
         if st.button("Run Cryptographic Hash Chain Audit 🔍", type="primary", use_container_width=True):
             with st.spinner("Calculating SHA-256 hashes across complete audit ledger..."):
                 integrity_res = GovernanceClient.verify_audit_integrity()
-                if integrity_res.get("valid", False):
+                if integrity_res.get("is_valid", False):
                     st.success(f"✅ **Ledger Intact**: Verified {integrity_res.get('total_records', len(audit_logs_all))} blocks. Zero cryptographic hash discrepancies detected.")
                 else:
-                    st.error(f"❌ **Integrity Alert**: Discrepancy detected at record ID `{integrity_res.get('failed_at_id')}`! Details: {integrity_res.get('error')}")
+                    st.error(f"❌ **Integrity Alert**: Discrepancy detected at record ID `{integrity_res.get('broken_at_id')}`! Details: {integrity_res.get('message')}")
 
         st.markdown("<hr style='margin:1.2rem 0 !important;'>", unsafe_allow_html=True)
         st.subheader("📥 Export Audit Telemetry")
