@@ -9,7 +9,7 @@ from backend.config import settings
 from backend.database import get_db, init_db
 from backend.models import Agent, Permission
 from backend.schemas import (
-    AgentCreate, AgentUpdate, AgentResponse,
+    AgentCreate, AgentUpdate, AgentResponse, AgentDetailResponse, AgentActivityItem,
     PermissionCreate, PermissionResponse,
     PolicyEvaluationRequest, PolicyEvaluationResponse,
     ApprovalReviewRequest, ApprovalRequestResponse,
@@ -66,15 +66,29 @@ def health_check():
 # AGENT MANAGEMENT ENDPOINTS
 # -----------------------------------------------------------------------------
 @app.get("/api/agents", response_model=list[AgentResponse], tags=["Agents"])
-def list_agents(active_only: bool = False, db: Session = Depends(get_db)):
-    return AgentService.list_agents(db, active_only=active_only)
+def list_agents(
+    active_only: bool = False,
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    db: Session = Depends(get_db)
+):
+    return AgentService.list_agents(db, active_only=active_only, search=search, role=role, is_active=is_active)
 
-@app.get("/api/agents/{agent_id}", response_model=AgentResponse, tags=["Agents"])
+@app.get("/api/agents/{agent_id}", response_model=AgentDetailResponse, tags=["Agents"])
 def get_agent(agent_id: str, db: Session = Depends(get_db)):
+    detail = AgentService.get_agent_detail(db, agent_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
+    return detail
+
+@app.get("/api/agents/{agent_id}/activity", response_model=list[AgentActivityItem], tags=["Agents"])
+def get_agent_activity(agent_id: str, limit: int = 50, db: Session = Depends(get_db)):
     agent = AgentService.get_agent(db, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
-    return agent
+    logs = AgentService.get_agent_activity(db, agent_id, limit=limit)
+    return logs
 
 @app.post("/api/agents", response_model=AgentResponse, status_code=status.HTTP_201_CREATED, tags=["Agents"])
 def create_agent(agent_in: AgentCreate, db: Session = Depends(get_db)):

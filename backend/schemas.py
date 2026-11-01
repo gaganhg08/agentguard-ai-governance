@@ -4,17 +4,28 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # --- AGENT SCHEMAS ---
 class AgentBase(BaseModel):
-    id: str = Field(..., json_schema_extra={"example": "agent-support-01"})
-    name: str = Field(..., json_schema_extra={"example": "Customer Support Assistant"})
+    id: str = Field(
+        ...,
+        min_length=3,
+        max_length=64,
+        pattern=r"^[a-zA-Z0-9_\-]+$",
+        json_schema_extra={"example": "agent-support-01"}
+    )
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=128,
+        json_schema_extra={"example": "Customer Support Assistant"}
+    )
     role: str = Field(..., json_schema_extra={"example": "Customer Support"})
     description: Optional[str] = Field(default="", json_schema_extra={"example": "Handles order inquiries and standard refunds"})
     is_active: bool = Field(default=True)
 
 class AgentCreate(AgentBase):
-    api_key: Optional[str] = None
+    api_key: Optional[str] = Field(default=None, description="Optional agent authentication credential, stored as salted hash")
 
 class AgentUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=2, max_length=128)
     role: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
@@ -22,6 +33,25 @@ class AgentUpdate(BaseModel):
 class AgentResponse(AgentBase):
     created_at: datetime
     updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class AgentDetailResponse(AgentResponse):
+    total_evaluations: int = 0
+    allowed_actions: int = 0
+    blocked_actions: int = 0
+    pending_approvals: int = 0
+    last_active: Optional[datetime] = None
+    allowed_tools: list[str] = Field(default_factory=list)
+
+class AgentActivityItem(BaseModel):
+    id: int
+    timestamp: datetime
+    tool_name: str
+    decision: str
+    risk_level: str
+    reason: str
+    execution_status: str
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -167,69 +167,289 @@ if "1. Overview" in nav_selection:
 elif "2. AI Agents" in nav_selection:
     st.markdown("""
         <div class="page-header">
-            <div class="page-title">🤖 AI Agent Directory & Lifecycle</div>
-            <div class="page-subtitle">Inspect registered agent identities, control active states, and register new autonomous agents.</div>
+            <div class="page-title">🤖 AI Agent Management & Directory</div>
+            <div class="page-subtitle">Register, inspect, edit, monitor, activate, and deactivate enterprise AI agent identities.</div>
         </div>
     """, unsafe_allow_html=True)
 
-    tab_fleet, tab_new = st.tabs(["Active Fleet Directory", "+ Register New AI Agent"])
+    tab_table, tab_detail, tab_edit, tab_register = st.tabs([
+        "📋 Registered Agents",
+        "🔍 Agent Details & Activity",
+        "✏️ Edit Agent",
+        "➕ Register New Agent"
+    ])
 
-    with tab_fleet:
-        agents = GovernanceClient.get_agents()
-        st.markdown(f"**Total Registered Agents:** `{len(agents)}`")
+    # -------------------------------------------------------------------------
+    # TAB 1: REGISTERED AGENTS TABLE & FLEET (Search & Filter)
+    # -------------------------------------------------------------------------
+    with tab_table:
+        st.markdown('<div class="pro-card">', unsafe_allow_html=True)
+        col_s1, col_s2, col_s3 = st.columns([2, 1.2, 1.2])
 
-        for ag in agents:
-            with st.container():
+        with col_s1:
+            search_query = st.text_input("🔍 Search by Agent Name, ID, or Description", placeholder="e.g. Support, agent-finance-01...")
+        with col_s2:
+            role_options = ["All", "Customer Support", "Finance", "IT Admin", "Security Ops", "Analytics", "Custom"]
+            selected_role = st.selectbox("Filter by Role", role_options)
+        with col_s3:
+            status_options = ["All Statuses", "Active Only", "Inactive Only"]
+            selected_status = st.selectbox("Filter by Status", status_options)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        is_active_filter = None
+        if selected_status == "Active Only":
+            is_active_filter = True
+        elif selected_status == "Inactive Only":
+            is_active_filter = False
+
+        filtered_agents = GovernanceClient.get_agents(
+            search=search_query if search_query else None,
+            role=selected_role if selected_role != "All" else None,
+            is_active=is_active_filter
+        )
+
+        # Summary KPIs
+        t_count = len(filtered_agents)
+        a_count = sum(1 for a in filtered_agents if a["is_active"])
+        i_count = t_count - a_count
+
+        kpi_c1, kpi_c2, kpi_c3 = st.columns(3)
+        with kpi_c1:
+            st.metric("Agents Shown", t_count)
+        with kpi_c2:
+            st.metric("Active Agents", a_count)
+        with kpi_c3:
+            st.metric("Deactivated Agents", i_count)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Professional Table
+        if filtered_agents:
+            table_data = []
+            for a in filtered_agents:
+                status_str = "🟢 Active" if a["is_active"] else "🔴 Inactive"
+                table_data.append({
+                    "Agent ID": a["id"],
+                    "Display Name": a["name"],
+                    "Role": a["role"],
+                    "Status": status_str,
+                    "Created At": a["created_at"],
+                    "Last Updated": a["updated_at"] or a["created_at"],
+                    "Description": a["description"]
+                })
+            df_display = pd.DataFrame(table_data)
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+            st.subheader("Agent Fleet Cards & Quick Actions")
+            for ag in filtered_agents:
                 st.markdown("""<div class="pro-card">""", unsafe_allow_html=True)
-                col_info, col_status, col_action = st.columns([3.5, 1.2, 1.3])
-
-                with col_info:
-                    status_badge = '<span class="badge-pill badge-active">● Active</span>' if ag["is_active"] else '<span class="badge-pill badge-inactive">○ Deactivated</span>'
-                    st.markdown(f"#### {ag['name']} &nbsp; {status_badge}", unsafe_allow_html=True)
-                    st.markdown(f"**Agent ID:** `{ag['id']}` &nbsp;|&nbsp; **Role:** `{ag['role']}` &nbsp;|&nbsp; **Registered:** {ag['created_at']}")
+                c_inf, c_st, c_act = st.columns([3.5, 1.2, 1.5])
+                with c_inf:
+                    s_badge = '<span class="badge-pill badge-active">● Active</span>' if ag["is_active"] else '<span class="badge-pill badge-inactive">○ Deactivated</span>'
+                    st.markdown(f"#### {ag['name']} &nbsp; {s_badge}", unsafe_allow_html=True)
+                    st.markdown(f"**ID:** `{ag['id']}` &nbsp;|&nbsp; **Role:** `{ag['role']}` &nbsp;|&nbsp; **Created:** {ag['created_at']}")
                     st.write(ag["description"])
 
-                with col_status:
-                    st.write("**Operational Status**")
+                with c_st:
+                    st.write("**Access Status**")
                     if ag["is_active"]:
                         st.success("Authorized")
                     else:
-                        st.error("Blocked by Policy")
+                        st.error("Blocked (Default-Deny)")
 
-                with col_action:
-                    st.write("**Action**")
-                    toggle_label = "Deactivate" if ag["is_active"] else "Activate"
-                    if st.button(toggle_label, key=f"tog_{ag['id']}", use_container_width=True):
-                        GovernanceClient.toggle_agent(ag["id"])
-                        st.rerun()
+                with c_act:
+                    st.write("**Controls**")
+                    tog_label = "Deactivate" if ag["is_active"] else "Activate"
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        if st.button(tog_label, key=f"tbl_tog_{ag['id']}", use_container_width=True):
+                            GovernanceClient.toggle_agent(ag["id"])
+                            st.rerun()
+                    with col_b2:
+                        if st.button("Delete", key=f"tbl_del_{ag['id']}", use_container_width=True):
+                            GovernanceClient.delete_agent(ag["id"])
+                            st.rerun()
 
                 st.markdown("""</div>""", unsafe_allow_html=True)
+        else:
+            st.info("No agents match the selected search or filter criteria.")
 
-    with tab_new:
+    # -------------------------------------------------------------------------
+    # TAB 2: AGENT DETAIL INSPECTOR & ACTIVITY
+    # -------------------------------------------------------------------------
+    with tab_detail:
+        all_agents_list = GovernanceClient.get_agents()
+        if all_agents_list:
+            selected_agent_choice = st.selectbox(
+                "Select Agent to Inspect",
+                options=[f"{a['name']} ({a['id']} - {a['role']})" for a in all_agents_list],
+                key="detail_agent_select"
+            )
+            detail_agent_id = selected_agent_choice.split("(")[1].split(" -")[0].strip()
+            detail = GovernanceClient.get_agent_detail(detail_agent_id)
+
+            if detail:
+                st.markdown('<div class="pro-card">', unsafe_allow_html=True)
+                col_h1, col_h2 = st.columns([3, 1])
+                with col_h1:
+                    status_pill = '<span class="badge-pill badge-active">● Active & Authorized</span>' if detail["is_active"] else '<span class="badge-pill badge-inactive">○ Deactivated (Actions Blocked)</span>'
+                    st.markdown(f"### {detail['name']} &nbsp; {status_pill}", unsafe_allow_html=True)
+                    st.markdown(f"**Agent ID:** `{detail['id']}` &nbsp;|&nbsp; **Role:** `{detail['role']}`")
+                    st.write(detail["description"])
+                with col_h2:
+                    st.write(f"**Created:** {detail['created_at_fmt']}")
+                    st.write(f"**Updated:** {detail['updated_at_fmt']}")
+                    st.write(f"**Last Active:** {detail['last_active_fmt']}")
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                # Activity & Telemetry KPIs
+                m1, m2, m3, m4 = st.columns(4)
+                with m1:
+                    st.metric("Total Evaluations", detail["total_evaluations"])
+                with m2:
+                    st.metric("Allowed Actions", detail["allowed_actions"], delta="Executed", delta_color="normal")
+                with m3:
+                    st.metric("Blocked Actions (DENY)", detail["blocked_actions"], delta="Violations", delta_color="inverse")
+                with m4:
+                    st.metric("Pending Approvals", detail["pending_approvals"], delta="Paused", delta_color="off")
+
+                # Allowed Tools Section
+                st.markdown('<div class="pro-card">', unsafe_allow_html=True)
+                st.subheader("Allowed Tools & RBAC Capabilities")
+                if detail["allowed_tools"]:
+                    tool_chips = " ".join([f"`{t}`" for t in detail["allowed_tools"]])
+                    st.markdown(f"Tools assigned via role **{detail['role']}**:<br>{tool_chips}", unsafe_allow_html=True)
+                else:
+                    st.warning(f"No tools currently permitted for role '{detail['role']}'. Default-deny is enforced.")
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                # Recent Agent Activity
+                st.markdown("### 📜 Recent Agent Interceptions & Event History")
+                agent_logs = GovernanceClient.get_agent_activity(detail_agent_id)
+                if agent_logs:
+                    df_agent_logs = pd.DataFrame(agent_logs)
+                    df_agent_logs.columns = ["ID", "Timestamp", "Tool Called", "Policy Verdict", "Risk Tier", "Enforcement Reason", "Execution Status"]
+                    st.dataframe(df_agent_logs, use_container_width=True, hide_index=True)
+                else:
+                    st.info(f"No activity events recorded yet for agent '{detail['name']}'.")
+        else:
+            st.info("No agents enrolled in directory.")
+
+    # -------------------------------------------------------------------------
+    # TAB 3: EDIT AGENT INFORMATION
+    # -------------------------------------------------------------------------
+    with tab_edit:
         st.markdown('<div class="pro-card">', unsafe_allow_html=True)
-        st.subheader("Register an Enterprise AI Agent")
-        st.caption("New agents are subject to default-deny access control until assigned permissions.")
-        
-        with st.form("agent_register_form"):
+        st.subheader("Edit Registered Agent Information")
+        st.caption("Update agent display name, role assignment, functional description, or active status.")
+
+        all_agents_for_edit = GovernanceClient.get_agents()
+        if all_agents_for_edit:
+            edit_agent_choice = st.selectbox(
+                "Select Agent to Edit",
+                options=[f"{a['name']} ({a['id']})" for a in all_agents_for_edit],
+                key="edit_agent_select"
+            )
+            target_edit_id = edit_agent_choice.split("(")[1].split(")")[0].strip()
+            current_agent = next((a for a in all_agents_for_edit if a["id"] == target_edit_id), None)
+
+            if current_agent:
+                with st.form("edit_agent_form"):
+                    col_e1, col_e2 = st.columns(2)
+                    with col_e1:
+                        new_name = st.text_input("Agent Display Name", value=current_agent["name"])
+                        available_roles = ["Customer Support", "Finance", "IT Admin", "Security Ops", "Analytics", "Custom"]
+                        role_index = available_roles.index(current_agent["role"]) if current_agent["role"] in available_roles else 0
+                        new_role = st.selectbox("Assigned Role", available_roles, index=role_index)
+
+                    with col_e2:
+                        new_is_active = st.checkbox("Active & Authorized to Execute Tools", value=current_agent["is_active"])
+                        new_desc = st.text_area("Functional Scope & Description", value=current_agent["description"])
+
+                    save_btn = st.form_submit_button("Save Changes", type="primary")
+                    if save_btn:
+                        if not new_name.strip():
+                            st.error("Agent Display Name cannot be empty.")
+                        else:
+                            success = GovernanceClient.update_agent(
+                                agent_id=target_edit_id,
+                                name=new_name.strip(),
+                                role=new_role,
+                                description=new_desc.strip(),
+                                is_active=new_is_active
+                            )
+                            if success:
+                                st.success(f"Agent '{new_name}' updated successfully in SQLite database!")
+                                st.rerun()
+                            else:
+                                st.error("Failed to update agent.")
+        else:
+            st.info("No agents available to edit.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # TAB 4: REGISTER NEW AGENT
+    # -------------------------------------------------------------------------
+    with tab_register:
+        st.markdown('<div class="pro-card">', unsafe_allow_html=True)
+        st.subheader("Enroll a New Enterprise AI Agent")
+        st.caption("Every agent identity must possess a unique identifier. Default-deny security is applied immediately upon registration.")
+
+        with st.form("agent_register_form_pro"):
             c_f1, c_f2 = st.columns(2)
             with c_f1:
-                n_id = st.text_input("Agent Identifier (ID)", placeholder="e.g. agent-sales-01")
-                n_name = st.text_input("Display Name", placeholder="e.g. Sales Pipeline Intelligence")
-            with c_f2:
-                n_role = st.selectbox("Designated Role", ["Customer Support", "Finance", "IT Admin", "Security Ops", "Analytics", "Custom"])
-                n_desc = st.text_area("Scope of Operations & Justification", placeholder="Summarizes weekly CRM opportunities...")
+                n_id = st.text_input(
+                    "Unique Agent ID",
+                    placeholder="e.g. agent-sales-01, agent-legal-01",
+                    help="Allowed characters: alphanumeric, dashes, and underscores (min 3 chars)."
+                )
+                n_name = st.text_input(
+                    "Agent Display Name",
+                    placeholder="e.g. Legal Compliance Document Reviewer"
+                )
+                n_key = st.text_input(
+                    "Optional Secret Token / API Key",
+                    type="password",
+                    placeholder="Optional authentication secret",
+                    help="Stored as a salted SHA-256 hash. Plaintext is never exposed in UI or responses."
+                )
 
-            reg_submit = st.form_submit_button("Register Agent Identity", type="primary")
+            with c_f2:
+                n_role = st.selectbox(
+                    "Assigned Role (RBAC)",
+                    ["Customer Support", "Finance", "IT Admin", "Security Ops", "Analytics", "Custom"]
+                )
+                n_active = st.checkbox("Activate Agent Immediately", value=True)
+                n_desc = st.text_area(
+                    "Functional Scope & Security Justification",
+                    placeholder="Describe what tools this agent is intended to use..."
+                )
+
+            reg_submit = st.form_submit_button("Register & Deploy Agent", type="primary")
             if reg_submit:
-                if not n_id or not n_name:
+                import re
+                cleaned_id = n_id.strip() if n_id else ""
+                cleaned_name = n_name.strip() if n_name else ""
+
+                if not cleaned_id or not cleaned_name:
                     st.error("Agent ID and Display Name are mandatory.")
+                elif len(cleaned_id) < 3 or not re.match(r"^[a-zA-Z0-9_\-]+$", cleaned_id):
+                    st.error("Agent ID must be at least 3 characters and contain only letters, numbers, hyphens, and underscores.")
                 else:
                     try:
-                        GovernanceClient.create_agent(n_id.strip(), n_name.strip(), n_role, n_desc.strip())
-                        st.success(f"Agent '{n_name}' successfully enrolled in security directory.")
+                        GovernanceClient.create_agent(
+                            agent_id=cleaned_id,
+                            name=cleaned_name,
+                            role=n_role,
+                            description=n_desc.strip(),
+                            is_active=n_active,
+                            api_key=n_key.strip() if n_key else None
+                        )
+                        st.success(f"Agent '{cleaned_name}' ({cleaned_id}) successfully registered with role '{n_role}'!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Failed to register agent: {str(e)}")
+                        st.error(f"Error registering agent: {str(e)}")
         st.markdown('</div>', unsafe_allow_html=True)
 
 

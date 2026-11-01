@@ -18,10 +18,16 @@ class GovernanceClient:
 
     # --- AGENT FLEET ---
     @classmethod
-    def get_agents(cls) -> list[dict[str, Any]]:
+    def get_agents(
+        cls,
+        active_only: bool = False,
+        search: Optional[str] = None,
+        role: Optional[str] = None,
+        is_active: Optional[bool] = None
+    ) -> list[dict[str, Any]]:
         db = SessionLocal()
         try:
-            agents = AgentService.list_agents(db)
+            agents = AgentService.list_agents(db, active_only=active_only, search=search, role=role, is_active=is_active)
             return [
                 {
                     "id": a.id,
@@ -29,9 +35,44 @@ class GovernanceClient:
                     "role": a.role,
                     "description": a.description,
                     "is_active": a.is_active,
-                    "created_at": a.created_at.strftime("%Y-%m-%d %H:%M:%S") if a.created_at else ""
+                    "created_at": a.created_at.strftime("%Y-%m-%d %H:%M:%S") if a.created_at else "",
+                    "updated_at": a.updated_at.strftime("%Y-%m-%d %H:%M:%S") if a.updated_at else ""
                 }
                 for a in agents
+            ]
+        finally:
+            db.close()
+
+    @classmethod
+    def get_agent_detail(cls, agent_id: str) -> Optional[dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            detail = AgentService.get_agent_detail(db, agent_id)
+            if not detail:
+                return None
+            detail["created_at_fmt"] = detail["created_at"].strftime("%Y-%m-%d %H:%M:%S") if detail["created_at"] else "—"
+            detail["updated_at_fmt"] = detail["updated_at"].strftime("%Y-%m-%d %H:%M:%S") if detail["updated_at"] else "—"
+            detail["last_active_fmt"] = detail["last_active"].strftime("%Y-%m-%d %H:%M:%S") if detail["last_active"] else "Never"
+            return detail
+        finally:
+            db.close()
+
+    @classmethod
+    def get_agent_activity(cls, agent_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            logs = AgentService.get_agent_activity(db, agent_id, limit=limit)
+            return [
+                {
+                    "id": l.id,
+                    "timestamp": l.timestamp.strftime("%Y-%m-%d %H:%M:%S") if l.timestamp else "—",
+                    "tool_name": l.tool_name,
+                    "decision": l.decision,
+                    "risk_level": l.risk_level,
+                    "reason": l.reason,
+                    "execution_status": l.execution_status
+                }
+                for l in logs
             ]
         finally:
             db.close()
@@ -46,11 +87,55 @@ class GovernanceClient:
             db.close()
 
     @classmethod
-    def create_agent(cls, agent_id: str, name: str, role: str, description: str) -> None:
+    def create_agent(
+        cls,
+        agent_id: str,
+        name: str,
+        role: str,
+        description: str,
+        is_active: bool = True,
+        api_key: Optional[str] = None
+    ) -> None:
         from backend.schemas import AgentCreate
         db = SessionLocal()
         try:
-            AgentService.create_agent(db, AgentCreate(id=agent_id, name=name, role=role, description=description))
+            AgentService.create_agent(
+                db,
+                AgentCreate(
+                    id=agent_id,
+                    name=name,
+                    role=role,
+                    description=description,
+                    is_active=is_active,
+                    api_key=api_key
+                )
+            )
+        finally:
+            db.close()
+
+    @classmethod
+    def update_agent(
+        cls,
+        agent_id: str,
+        name: Optional[str] = None,
+        role: Optional[str] = None,
+        description: Optional[str] = None,
+        is_active: Optional[bool] = None
+    ) -> bool:
+        from backend.schemas import AgentUpdate
+        db = SessionLocal()
+        try:
+            res = AgentService.update_agent(
+                db,
+                agent_id,
+                AgentUpdate(
+                    name=name,
+                    role=role,
+                    description=description,
+                    is_active=is_active
+                )
+            )
+            return res is not None
         finally:
             db.close()
 
