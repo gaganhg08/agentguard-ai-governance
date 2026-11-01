@@ -328,17 +328,25 @@ class GovernanceClient:
 
     # --- POLICY EVALUATION ---
     @classmethod
-    def evaluate_policy(cls, agent_id: str, tool_name: str, parameters: dict[str, Any]) -> dict[str, Any]:
+    def evaluate_policy(cls, agent_id: str, tool_name: str, parameters: dict[str, Any], resource: Optional[str] = None) -> dict[str, Any]:
         db = SessionLocal()
         try:
-            res = PolicyEngine.evaluate(db, agent_id, tool_name, parameters)
+            res = PolicyEngine.evaluate(db, agent_id=agent_id, tool_name=tool_name, parameters=parameters, resource=resource)
             return {
                 "decision": res.decision,
+                "agent_id": res.agent_id,
+                "agent_name": res.agent_name,
+                "agent_role": res.agent_role,
+                "requested_action": res.requested_action,
+                "target_resource": res.target_resource,
+                "applicable_policy": res.applicable_policy,
                 "reason": res.reason,
                 "risk_level": res.risk_level,
+                "requires_human_approval": res.requires_human_approval,
                 "guardrail_flags": res.guardrail_flags,
                 "approval_id": res.approval_id,
-                "execution_preview": res.execution_preview
+                "execution_preview": res.execution_preview,
+                "evaluation_trace": res.evaluation_trace
             }
         finally:
             db.close()

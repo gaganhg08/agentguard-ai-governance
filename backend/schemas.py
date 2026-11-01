@@ -76,17 +76,27 @@ class PermissionResponse(PermissionBase):
 # --- POLICY EVALUATION SCHEMAS ---
 class PolicyEvaluationRequest(BaseModel):
     agent_id: str
-    tool_name: str
+    tool_name: Optional[str] = None
+    action: Optional[str] = None  # Alias for tool_name
+    resource: Optional[str] = None # e.g. "order:ORD-1092", "server:prod-ingress"
     parameters: dict[str, Any] = Field(default_factory=dict)
     context: Optional[dict[str, Any]] = None
 
 class PolicyEvaluationResponse(BaseModel):
     decision: str  # ALLOW, DENY, REQUIRE_APPROVAL
+    agent_id: str = ""
+    agent_name: str = ""
+    agent_role: str = ""
+    requested_action: str = ""
+    target_resource: Optional[str] = "Global / General"
+    applicable_policy: str = "Default-Deny Policy"
     reason: str
     risk_level: str  # LOW, MEDIUM, HIGH, CRITICAL
+    requires_human_approval: bool = False
     guardrail_flags: list[str] = Field(default_factory=list)
     approval_id: Optional[str] = None
     execution_preview: Optional[str] = None
+    evaluation_trace: list[dict[str, str]] = Field(default_factory=list)
 
 
 # --- APPROVAL SCHEMAS ---

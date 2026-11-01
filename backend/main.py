@@ -190,11 +190,13 @@ def toggle_policy(rule_id: int, db: Session = Depends(get_db)):
 # -----------------------------------------------------------------------------
 @app.post("/api/policy/evaluate", response_model=PolicyEvaluationResponse, tags=["Policy Engine"])
 def evaluate_policy(request: PolicyEvaluationRequest, db: Session = Depends(get_db)):
+    target_tool = request.tool_name or request.action or ""
     return PolicyEngine.evaluate(
         db=db,
         agent_id=request.agent_id,
-        tool_name=request.tool_name,
+        tool_name=target_tool,
         parameters=request.parameters,
+        resource=request.resource,
         context=request.context
     )
 

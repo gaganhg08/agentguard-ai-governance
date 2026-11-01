@@ -200,6 +200,62 @@ CUSTOM_CSS = """
         box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
     }
 
+    /* Policy Evaluation Hero Verdict Banners */
+    .verdict-hero {
+        border-radius: 12px;
+        padding: 1.5rem 1.8rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .verdict-hero-allow {
+        background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+        border: 2px solid #10B981;
+    }
+    .verdict-hero-deny {
+        background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
+        border: 2px solid #EF4444;
+    }
+    .verdict-hero-approval {
+        background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+        border: 2px solid #F59E0B;
+    }
+    .verdict-title {
+        font-size: 1.75rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+    .verdict-subtitle {
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+
+    /* Trace Pipeline Steps */
+    .trace-step-item {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    .trace-step-item.step-pass {
+        border-left: 4px solid #10B981;
+    }
+    .trace-step-item.step-fail {
+        border-left: 4px solid #EF4444;
+        background: #FEF2F2;
+    }
+    .trace-step-item.step-paused {
+        border-left: 4px solid #F59E0B;
+        background: #FFFBEB;
+    }
+
     /* Subtle Dividers */
     hr {
         margin: 1.5rem 0 !important;
