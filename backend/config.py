@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     
     # Sensitive tools that always require human approval
     SENSITIVE_TOOLS: set[str] = {
+        "system:manage",
+        "refund:approve",
         "modify_firewall",
         "restart_service",
         "reset_password",

@@ -19,12 +19,22 @@ class Agent(Base):
     approval_requests = relationship("ApprovalRequest", back_populates="agent", cascade="all, delete-orphan")
 
 
+class Role(Base):
+    __tablename__ = "roles"
+
+    name = Column(String(64), primary_key=True)
+    description = Column(Text, default="")
+    is_system_role = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class Permission(Base):
     __tablename__ = "permissions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     role = Column(String(64), nullable=False, index=True)
-    tool_name = Column(String(64), nullable=False, index=True)
+    tool_name = Column(String(64), nullable=False, index=True) # Permission identifier or tool name
+    description = Column(Text, default="")
     action_type = Column(String(32), default="execute")  # read, write, execute, admin
     max_amount = Column(Float, nullable=True)            # financial cap if applicable
     requires_approval = Column(Boolean, default=False)   # baseline flag

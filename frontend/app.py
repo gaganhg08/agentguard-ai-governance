@@ -473,16 +473,22 @@ elif "3. Security Policies" in nav_selection:
             df_pol.columns = ["ID", "Policy Name", "Description", "Target Tool", "Condition Type", "Condition Value", "Outcome Action", "Priority", "Status"]
             st.dataframe(df_pol, use_container_width=True, hide_index=True)
 
-            st.markdown("#### Toggle Policy Enforcement")
-            rule_ids = [p["id"] for p in policies]
-            col_t1, col_t2 = st.columns([2, 1])
+            st.markdown("---")
+            col_t1, col_t2 = st.columns(2)
             with col_t1:
+                st.markdown("#### Toggle Policy State")
+                rule_ids = [p["id"] for p in policies]
                 selected_rule = st.selectbox("Select Rule to Toggle", options=rule_ids, format_func=lambda x: f"Rule #{x}: {next(p['name'] for p in policies if p['id']==x)}")
-            with col_t2:
-                st.write("")
-                st.write("")
-                if st.button("Toggle Active / Inactive", type="primary"):
+                if st.button("Toggle Active / Inactive", type="primary", use_container_width=True):
                     GovernanceClient.toggle_policy(selected_rule)
+                    st.rerun()
+
+            with col_t2:
+                st.markdown("#### Decommission Policy")
+                del_rule_id = st.selectbox("Select Rule to Delete", options=rule_ids, format_func=lambda x: f"Rule #{x}: {next(p['name'] for p in policies if p['id']==x)}", key="del_rule_sel")
+                if st.button("Delete Policy Rule", use_container_width=True):
+                    GovernanceClient.delete_policy(del_rule_id)
+                    st.success(f"Rule #{del_rule_id} decommissioned.")
                     st.rerun()
         else:
             st.info("No policy rules found.")
@@ -495,10 +501,10 @@ elif "3. Security Policies" in nav_selection:
             p_desc = st.text_area("Policy Description & Security Intent")
             col_p1, col_p2, col_p3 = st.columns(3)
             with col_p1:
-                p_tool = st.text_input("Target Tool (* for all)", value="process_payment")
+                p_tool = st.text_input("Target Tool / Permission (* for all)", value="refund:approve")
                 p_type = st.selectbox("Condition Type", ["amount_threshold", "role_whitelist", "guardrail_keyword"])
             with col_p2:
-                p_val = st.text_input("Condition Value", value="2000.0")
+                p_val = st.text_input("Condition Value", value="500.0")
                 p_act = st.selectbox("Outcome Action", ["REQUIRE_APPROVAL", "DENY", "ALLOW"])
             with col_p3:
                 p_prio = st.number_input("Priority Order (Lower = higher precedence)", min_value=1, max_value=50, value=5)
@@ -515,57 +521,207 @@ elif "3. Security Policies" in nav_selection:
 
 
 # =============================================================================
-# 4. PERMISSIONS & ROLES
+# 4. PERMISSIONS & ROLES (RBAC)
 # =============================================================================
 elif "4. Permissions & Roles" in nav_selection:
     st.markdown("""
         <div class="page-header">
-            <div class="page-title">🛡️ Role-Based Access Control (RBAC) & Tool Catalog</div>
-            <div class="page-subtitle">Inspect tool capability authorizations and register new permissions across agent roles.</div>
+            <div class="page-title">🛡️ Role-Based Access Control (RBAC) & Governance Matrix</div>
+            <div class="page-subtitle">Enforce least-privilege policies, assign roles to agents, and configure permission matrices.</div>
         </div>
     """, unsafe_allow_html=True)
 
-    tab_matrix, tab_catalog, tab_grant = st.tabs(["Role Permission Matrix", "System Tool Catalog", "+ Grant Permission"])
+    tab_mat, tab_roles, tab_manage, tab_grant, tab_cat = st.tabs([
+        "📊 RBAC Permission Matrix",
+        "👥 Roles & Agent Assignments",
+        "🛡️ Active Permissions Directory",
+        "➕ Grant / Modify Permission",
+        "🔧 System Tool Catalog"
+    ])
 
-    with tab_matrix:
-        perms = GovernanceClient.get_permissions()
-        if perms:
-            df_perms = pd.DataFrame(perms)
-            df_perms.columns = ["ID", "Role", "Tool Name", "Action Type", "Max Amount Cap", "Approval Required"]
-            st.dataframe(df_perms, use_container_width=True, hide_index=True)
-        else:
-            st.info("No permissions configured.")
+    # -------------------------------------------------------------------------
+    # TAB 1: INTERACTIVE RBAC MATRIX
+    # -------------------------------------------------------------------------
+    with tab_mat:
+        matrix_data = GovernanceClient.get_permission_matrix()
+        roles_list = matrix_data["roles"]
+        perms_list = matrix_data["permissions"]
+        matrix_dict = matrix_data["matrix"]
 
-    with tab_catalog:
+        st.markdown("""
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:0.85rem;">
+                <b>Legend:</b> &nbsp;
+                <span style="color:#059669; font-weight:600;">✅ Granted</span> &nbsp;|&nbsp;
+                <span style="color:#D97706; font-weight:600;">✋ Approval Required</span> &nbsp;|&nbsp;
+                <span style="color:#94A3B8; font-weight:500;">❌ Denied (Default-Deny)</span>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Build table rows for matrix
+        matrix_rows = []
+        for p in perms_list:
+            row = {"Permission / Tool": p}
+            for r in roles_list:
+                cell_info = matrix_dict[p][r]
+                if cell_info["granted"]:
+                    if cell_info["requires_approval"]:
+                        row[r] = "✋ Approval Required"
+                    else:
+                        row[r] = "✅ Granted"
+                else:
+                    row[r] = "❌ Denied"
+            matrix_rows.append(row)
+
+        df_matrix = pd.DataFrame(matrix_rows)
+        st.dataframe(df_matrix, use_container_width=True, hide_index=True)
+
+    # -------------------------------------------------------------------------
+    # TAB 2: ROLES & AGENT ASSIGNMENTS
+    # -------------------------------------------------------------------------
+    with tab_roles:
+        col_r_info, col_r_assign = st.columns([1.5, 1])
+
+        with col_r_info:
+            st.markdown("### Configured Enterprise Roles")
+            roles_meta = GovernanceClient.get_roles()
+            for rm in roles_meta:
+                st.markdown("""<div class="pro-card">""", unsafe_allow_html=True)
+                st.markdown(f"#### 👤 {rm['name']}")
+                st.write(rm["description"] or "Standard operational role.")
+                st.markdown(f"**Assigned Agents:** `{rm['agent_count']}` &nbsp;|&nbsp; **Granted Permissions:** `{rm['permission_count']}`")
+                st.markdown("""</div>""", unsafe_allow_html=True)
+
+        with col_r_assign:
+            st.markdown('<div class="pro-card">', unsafe_allow_html=True)
+            st.markdown("### Assign Role to Agent")
+            st.caption("Dynamically reassign an agent's role. Changes take effect immediately under default-deny.")
+
+            agents_for_reassign = GovernanceClient.get_agents()
+            if agents_for_reassign:
+                with st.form("reassign_role_form"):
+                    target_ag_choice = st.selectbox(
+                        "Select Agent Identity",
+                        options=[f"{a['name']} ({a['id']} - current: {a['role']})" for a in agents_for_reassign]
+                    )
+                    target_agent_id = target_ag_choice.split("(")[1].split(" -")[0].strip()
+
+                    all_role_names = [r["name"] for r in GovernanceClient.get_roles()]
+                    new_role_pick = st.selectbox("Designate New Role", all_role_names)
+                    admin_id = st.text_input("Authorizing Administrator ID", value="secops_lead_carol")
+
+                    assign_btn = st.form_submit_button("Reassign Role", type="primary")
+                    if assign_btn:
+                        try:
+                            GovernanceClient.assign_role_to_agent(target_agent_id, new_role_pick, admin_id)
+                            st.success(f"Agent '{target_agent_id}' role updated to '{new_role_pick}'.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(str(e))
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # TAB 3: ACTIVE PERMISSIONS DIRECTORY & REVOCATION
+    # -------------------------------------------------------------------------
+    with tab_manage:
+        col_fil, col_rev = st.columns([2.5, 1.5])
+        with col_fil:
+            role_filter = st.selectbox("Filter Permissions by Role", ["All"] + [r["name"] for r in GovernanceClient.get_roles()])
+            active_perms = GovernanceClient.get_permissions(role=role_filter)
+            if active_perms:
+                df_ap = pd.DataFrame(active_perms)
+                df_ap.columns = ["ID", "Role", "Permission / Tool", "Description", "Type", "Max Limit", "Requires Approval"]
+                st.dataframe(df_ap, use_container_width=True, hide_index=True)
+            else:
+                st.info(f"No permissions granted for role '{role_filter}'.")
+
+        with col_rev:
+            st.markdown('<div class="pro-card">', unsafe_allow_html=True)
+            st.subheader("Revoke Permission")
+            st.caption("Remove an authorization from a role. Blocked by default-deny.")
+
+            if active_perms:
+                with st.form("revoke_perm_form"):
+                    target_perm_id = st.selectbox(
+                        "Select Permission to Revoke",
+                        options=[p["id"] for p in active_perms],
+                        format_func=lambda x: f"#{x}: {next(p['role'] for p in active_perms if p['id']==x)} -> {next(p['tool_name'] for p in active_perms if p['id']==x)}"
+                    )
+                    rev_admin = st.text_input("Admin Authorization Identity", value="secops_lead_carol", key="rev_adm_id")
+                    rev_sub = st.form_submit_button("Revoke Permission", type="primary")
+                    if rev_sub:
+                        try:
+                            GovernanceClient.revoke_permission(target_perm_id, rev_admin)
+                            st.warning(f"Permission #{target_perm_id} revoked.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(str(e))
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # TAB 4: GRANT / MODIFY PERMISSION
+    # -------------------------------------------------------------------------
+    with tab_grant:
+        st.markdown('<div class="pro-card">', unsafe_allow_html=True)
+        st.subheader("Grant or Update Permission for Role")
+        st.caption("Follows least-privilege: grants explicit execution rights to a designated role.")
+
+        standard_perms_list = [
+            "customer:read",
+            "ticket:create",
+            "refund:request",
+            "refund:approve",
+            "system:manage"
+        ]
+        registered_tools_list = list(GovernanceClient.get_tools().keys())
+        combined_capabilities = standard_perms_list + registered_tools_list
+
+        with st.form("grant_perm_pro_form"):
+            c_g1, c_g2 = st.columns(2)
+            with c_g1:
+                g_role = st.selectbox("Designated Role", [r["name"] for r in GovernanceClient.get_roles()])
+                g_perm = st.selectbox("Permission / Tool Capability", combined_capabilities)
+                g_act = st.selectbox("Action Level", ["read", "write", "execute", "admin"])
+
+            with c_g2:
+                g_admin = st.text_input("Administrator Identity (Required)", value="secops_lead_carol", help="Prevent unauthorized permission changes")
+                g_max = st.number_input("Monetary Limit Cap ($0 for N/A)", min_value=0.0, value=0.0, step=50.0)
+                g_appr = st.checkbox("Require Human Approval for this action", value=False)
+                g_desc = st.text_input("Permission Justification & Scope", placeholder="e.g. Authorized to inspect orders under 30 days")
+
+            g_submit = st.form_submit_button("Grant / Update Authorization", type="primary")
+            if g_submit:
+                try:
+                    max_lim = float(g_max) if g_max > 0 else None
+                    GovernanceClient.grant_permission(
+                        role=g_role,
+                        tool_name=g_perm,
+                        action_type=g_act,
+                        max_amount=max_lim,
+                        requires_approval=g_appr,
+                        description=g_desc.strip(),
+                        authorized_by=g_admin.strip()
+                    )
+                    st.success(f"Permission '{g_perm}' successfully granted to role '{g_role}'!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # TAB 5: SYSTEM TOOL CATALOG
+    # -------------------------------------------------------------------------
+    with tab_cat:
         tools = GovernanceClient.get_tools()
         tool_records = []
         for t_name, spec in tools.items():
             tool_records.append({
-                "Tool Name": t_name,
+                "Tool / Capability Name": t_name,
                 "Category": spec["category"].title(),
-                "Baseline Risk": spec["risk"],
-                "Required Parameters": ", ".join(spec["required_params"]),
+                "Baseline Risk Tier": spec["risk"],
+                "Required Parameters": ", ".join(spec["required_params"]) if spec["required_params"] else "None",
                 "Description": spec["description"]
             })
         st.dataframe(pd.DataFrame(tool_records), use_container_width=True, hide_index=True)
-
-    with tab_grant:
-        st.markdown('<div class="pro-card">', unsafe_allow_html=True)
-        st.subheader("Grant Role Permission")
-        with st.form("grant_perm_form"):
-            g_role = st.selectbox("Assignee Role", ["Customer Support", "Finance", "IT Admin", "Security Ops", "Analytics", "Custom"])
-            g_tool = st.selectbox("Tool Name", list(GovernanceClient.get_tools().keys()))
-            g_act = st.selectbox("Action Type", ["read", "write", "execute", "admin"])
-            g_max = st.number_input("Max Monetary Limit (0 for N/A)", min_value=0.0, value=0.0, step=50.0)
-            g_appr = st.checkbox("Require Human Approval for this tool by default", value=False)
-            
-            g_sub = st.form_submit_button("Grant Permission", type="primary")
-            if g_sub:
-                max_val = float(g_max) if g_max > 0 else None
-                GovernanceClient.add_permission(g_role, g_tool, g_act, max_val, g_appr)
-                st.success(f"Permission for '{g_tool}' granted to role '{g_role}'.")
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =============================================================================

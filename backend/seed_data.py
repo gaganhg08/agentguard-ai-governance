@@ -2,7 +2,7 @@ from datetime import datetime, timezone, timedelta
 import json
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal, init_db
-from backend.models import Agent, Permission, PolicyRule, ApprovalRequest, AuditLog
+from backend.models import Agent, Role, Permission, PolicyRule, ApprovalRequest, AuditLog
 from backend.audit_service import AuditService, GENESIS_HASH
 
 def seed_database(db: Session = None):
@@ -22,7 +22,22 @@ def seed_database(db: Session = None):
         db.query(AuditLog).delete()
         db.query(Permission).delete()
         db.query(PolicyRule).delete()
+        db.query(Role).delete()
         db.query(Agent).delete()
+        db.commit()
+
+        # -------------------------------------------------------------
+        # 0. SEED RBAC ROLES
+        # -------------------------------------------------------------
+        roles = [
+            Role(name="Customer Support", description="Frontline client inquiry, FAQ, and customer refund support", is_system_role=True),
+            Role(name="Finance", description="Corporate financial disbursements, invoice auditing, and general ledger operations", is_system_role=True),
+            Role(name="IT Administrator", description="Enterprise infrastructure DevOps, cloud security boundaries, and daemon operations", is_system_role=True),
+            Role(name="IT Admin", description="System alias for IT Administrator", is_system_role=True),
+            Role(name="Security Ops", description="Incident response, quarantine enforcement, and threat mitigation", is_system_role=True),
+            Role(name="Analytics", description="Business intelligence data mining and scheduled reporting", is_system_role=True),
+        ]
+        db.add_all(roles)
         db.commit()
 
         # -------------------------------------------------------------
@@ -86,30 +101,52 @@ def seed_database(db: Session = None):
         # 2. SEED ROLE-BASED ACCESS CONTROL (RBAC) PERMISSIONS
         # -------------------------------------------------------------
         permissions = [
-            # Customer Support
+            # Standard Enterprise Permissions
+            # Customer Support: customer:read, ticket:create, refund:request
+            Permission(role="Customer Support", tool_name="customer:read", action_type="read", requires_approval=False, description="Read customer profiles and inquiries"),
+            Permission(role="Customer Support", tool_name="ticket:create", action_type="write", requires_approval=False, description="Open customer support tickets"),
+            Permission(role="Customer Support", tool_name="refund:request", action_type="execute", max_amount=100.0, requires_approval=False, description="Request customer refund"),
+            # Tool mappings for Customer Support
             Permission(role="Customer Support", tool_name="search_faq", action_type="read", requires_approval=False),
             Permission(role="Customer Support", tool_name="view_order", action_type="read", requires_approval=False),
             Permission(role="Customer Support", tool_name="send_email", action_type="write", requires_approval=False),
             Permission(role="Customer Support", tool_name="issue_refund", action_type="execute", max_amount=100.0, requires_approval=False),
 
-            # Finance
+            # Finance: customer:read, ticket:create, refund:request, refund:approve
+            Permission(role="Finance", tool_name="customer:read", action_type="read", requires_approval=False, description="Inspect customer invoices and statements"),
+            Permission(role="Finance", tool_name="ticket:create", action_type="write", requires_approval=False, description="Log billing inquiries"),
+            Permission(role="Finance", tool_name="refund:request", action_type="execute", max_amount=5000.0, requires_approval=False, description="Initiate reimbursement"),
+            Permission(role="Finance", tool_name="refund:approve", action_type="execute", max_amount=5000.0, requires_approval=True, description="Authorize and disburse refunds"),
+            # Tool mappings for Finance
             Permission(role="Finance", tool_name="view_invoice", action_type="read", requires_approval=False),
             Permission(role="Finance", tool_name="generate_financial_report", action_type="read", requires_approval=False),
             Permission(role="Finance", tool_name="process_payment", action_type="execute", max_amount=5000.0, requires_approval=False),
             Permission(role="Finance", tool_name="update_ledger", action_type="write", requires_approval=True),
 
-            # IT Admin
+            # IT Administrator: ticket:create, system:manage
+            Permission(role="IT Administrator", tool_name="ticket:create", action_type="write", requires_approval=False, description="Open infrastructure incident tickets"),
+            Permission(role="IT Administrator", tool_name="system:manage", action_type="admin", requires_approval=True, description="Full administrative infrastructure control"),
+            Permission(role="IT Administrator", tool_name="query_server_metrics", action_type="read", requires_approval=False),
+            Permission(role="IT Administrator", tool_name="restart_service", action_type="admin", requires_approval=True),
+            Permission(role="IT Administrator", tool_name="modify_firewall", action_type="admin", requires_approval=True),
+            Permission(role="IT Administrator", tool_name="reset_password", action_type="admin", requires_approval=True),
+
+            # IT Admin (Alias role for backwards-compatibility)
+            Permission(role="IT Admin", tool_name="ticket:create", action_type="write", requires_approval=False),
+            Permission(role="IT Admin", tool_name="system:manage", action_type="admin", requires_approval=True),
             Permission(role="IT Admin", tool_name="query_server_metrics", action_type="read", requires_approval=False),
             Permission(role="IT Admin", tool_name="restart_service", action_type="admin", requires_approval=True),
             Permission(role="IT Admin", tool_name="modify_firewall", action_type="admin", requires_approval=True),
             Permission(role="IT Admin", tool_name="reset_password", action_type="admin", requires_approval=True),
 
             # Security Ops
+            Permission(role="Security Ops", tool_name="system:manage", action_type="admin", requires_approval=True),
             Permission(role="Security Ops", tool_name="query_server_metrics", action_type="read", requires_approval=False),
             Permission(role="Security Ops", tool_name="modify_firewall", action_type="admin", requires_approval=True),
             Permission(role="Security Ops", tool_name="reset_password", action_type="admin", requires_approval=True),
 
             # Analytics
+            Permission(role="Analytics", tool_name="customer:read", action_type="read", requires_approval=False),
             Permission(role="Analytics", tool_name="generate_financial_report", action_type="read", requires_approval=False),
             Permission(role="Analytics", tool_name="query_server_metrics", action_type="read", requires_approval=False),
         ]

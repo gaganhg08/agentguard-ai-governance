@@ -2,8 +2,41 @@ import re
 from typing import Any
 from backend.config import settings
 
-# Registered system tools
+# Registered system tools and RBAC capability permissions
 REGISTERED_TOOLS: dict[str, dict[str, Any]] = {
+    # Standard Enterprise Permissions
+    "customer:read": {
+        "description": "Read customer profiles, order history, and FAQ articles",
+        "category": "support",
+        "risk": "LOW",
+        "required_params": []
+    },
+    "ticket:create": {
+        "description": "Open and update customer support cases and internal tickets",
+        "category": "support",
+        "risk": "LOW",
+        "required_params": []
+    },
+    "refund:request": {
+        "description": "Initiate refund requests for review or low-value processing",
+        "category": "finance",
+        "risk": "MEDIUM",
+        "required_params": []
+    },
+    "refund:approve": {
+        "description": "Authorize and disburse financial refunds and ledger entries",
+        "category": "finance",
+        "risk": "HIGH",
+        "required_params": []
+    },
+    "system:manage": {
+        "description": "Administrative control: restart daemons, update firewalls, reset credentials",
+        "category": "infrastructure",
+        "risk": "CRITICAL",
+        "required_params": []
+    },
+
+    # Specific Tool Specifications
     "search_faq": {
         "description": "Search knowledge base articles for customer queries",
         "category": "support",

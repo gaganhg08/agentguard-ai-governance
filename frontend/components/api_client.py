@@ -200,17 +200,48 @@ class GovernanceClient:
         finally:
             db.close()
 
-    # --- PERMISSIONS & ROLES ---
+    # --- PERMISSIONS & ROLES (RBAC) ---
     @classmethod
-    def get_permissions(cls) -> list[dict[str, Any]]:
+    def get_roles(cls) -> list[dict[str, Any]]:
+        from backend.rbac_service import RBACService
         db = SessionLocal()
         try:
-            perms = db.query(Permission).all()
+            return RBACService.list_roles(db)
+        finally:
+            db.close()
+
+    @classmethod
+    def create_role(cls, name: str, description: str, authorized_by: str = "security_lead") -> None:
+        from backend.rbac_service import RBACService
+        db = SessionLocal()
+        try:
+            RBACService.create_role(db, name, description, authorized_by)
+        finally:
+            db.close()
+
+    @classmethod
+    def assign_role_to_agent(cls, agent_id: str, new_role: str, authorized_by: str = "security_lead") -> None:
+        from backend.rbac_service import RBACService
+        db = SessionLocal()
+        try:
+            RBACService.assign_role_to_agent(db, agent_id, new_role, authorized_by)
+        finally:
+            db.close()
+
+    @classmethod
+    def get_permissions(cls, role: Optional[str] = None) -> list[dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            query = db.query(Permission)
+            if role and role != "All":
+                query = query.filter(Permission.role == role)
+            perms = query.all()
             return [
                 {
                     "id": p.id,
                     "role": p.role,
                     "tool_name": p.tool_name,
+                    "description": p.description or "",
                     "action_type": p.action_type,
                     "max_amount": p.max_amount if p.max_amount else "Unlimited",
                     "requires_approval": p.requires_approval
@@ -221,18 +252,60 @@ class GovernanceClient:
             db.close()
 
     @classmethod
-    def add_permission(cls, role: str, tool_name: str, action_type: str, max_amount: Optional[float], requires_approval: bool) -> None:
+    def grant_permission(
+        cls,
+        role: str,
+        tool_name: str,
+        action_type: str = "execute",
+        max_amount: Optional[float] = None,
+        requires_approval: bool = False,
+        description: str = "",
+        authorized_by: str = "security_lead"
+    ) -> None:
+        from backend.rbac_service import RBACService
         db = SessionLocal()
         try:
-            perm = Permission(
+            RBACService.grant_permission(
+                db=db,
                 role=role,
                 tool_name=tool_name,
                 action_type=action_type,
                 max_amount=max_amount,
-                requires_approval=requires_approval
+                requires_approval=requires_approval,
+                description=description,
+                authorized_by=authorized_by
             )
-            db.add(perm)
+        finally:
+            db.close()
+
+    @classmethod
+    def revoke_permission(cls, permission_id: int, authorized_by: str = "security_lead") -> bool:
+        from backend.rbac_service import RBACService
+        db = SessionLocal()
+        try:
+            return RBACService.revoke_permission(db, permission_id, authorized_by)
+        finally:
+            db.close()
+
+    @classmethod
+    def get_permission_matrix(cls) -> dict[str, Any]:
+        from backend.rbac_service import RBACService
+        db = SessionLocal()
+        try:
+            return RBACService.get_permission_matrix(db)
+        finally:
+            db.close()
+
+    @classmethod
+    def delete_policy(cls, rule_id: int) -> bool:
+        db = SessionLocal()
+        try:
+            rule = db.query(PolicyRule).filter(PolicyRule.id == rule_id).first()
+            if not rule:
+                return False
+            db.delete(rule)
             db.commit()
+            return True
         finally:
             db.close()
 
