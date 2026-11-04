@@ -10,13 +10,14 @@ from backend.database import get_db, init_db
 from backend.models import Agent, Permission
 from backend.schemas import (
     AgentCreate, AgentUpdate, AgentResponse, AgentDetailResponse, AgentActivityItem,
-    PermissionCreate, PermissionResponse,
+    PermissionCreate, PermissionResponse, RoleResponse, RoleAssignRequest,
     PolicyEvaluationRequest, PolicyEvaluationResponse,
     ApprovalReviewRequest, ApprovalRequestResponse,
     AuditLogResponse, AuditVerifyResponse,
     MockAgentRunRequest, MockAgentRunResponse
 )
 from backend.agent_service import AgentService
+from backend.rbac_service import RBACService
 from backend.policy_engine import PolicyEngine
 from backend.approval_service import ApprovalService
 from backend.audit_service import AuditService
@@ -120,11 +121,33 @@ def delete_agent(agent_id: str, db: Session = Depends(get_db)):
 
 
 # -----------------------------------------------------------------------------
-# PERMISSIONS & TOOLS ENDPOINTS
+# PERMISSIONS, ROLES & TOOLS ENDPOINTS (RBAC)
 # -----------------------------------------------------------------------------
 @app.get("/api/tools", tags=["Tools"])
 def list_registered_tools():
     return REGISTERED_TOOLS
+
+@app.get("/api/roles", response_model=list[RoleResponse], tags=["RBAC"])
+def list_roles(db: Session = Depends(get_db)):
+    return RBACService.list_roles(db)
+
+@app.get("/api/rbac/matrix", tags=["RBAC"])
+def get_rbac_matrix(db: Session = Depends(get_db)):
+    return RBACService.get_permission_matrix(db)
+
+@app.post("/api/agents/{agent_id}/assign-role", response_model=AgentResponse, tags=["RBAC"])
+def assign_role_to_agent(agent_id: str, req: RoleAssignRequest, db: Session = Depends(get_db)):
+    try:
+        return RBACService.assign_role_to_agent(
+            db=db,
+            agent_id=agent_id,
+            new_role=req.new_role,
+            authorized_by=req.authorized_by
+        )
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
 
 @app.get("/api/permissions", response_model=list[PermissionResponse], tags=["Permissions"])
 def list_permissions(role: Optional[str] = None, db: Session = Depends(get_db)):
@@ -135,17 +158,33 @@ def list_permissions(role: Optional[str] = None, db: Session = Depends(get_db)):
 
 @app.post("/api/permissions", response_model=PermissionResponse, status_code=status.HTTP_201_CREATED, tags=["Permissions"])
 def create_permission(perm_in: PermissionCreate, db: Session = Depends(get_db)):
-    perm = Permission(
-        role=perm_in.role,
-        tool_name=perm_in.tool_name,
-        action_type=perm_in.action_type,
-        max_amount=perm_in.max_amount,
-        requires_approval=perm_in.requires_approval
-    )
-    db.add(perm)
-    db.commit()
-    db.refresh(perm)
-    return perm
+    try:
+        return RBACService.grant_permission(
+            db=db,
+            role=perm_in.role,
+            tool_name=perm_in.tool_name,
+            action_type=perm_in.action_type,
+            max_amount=perm_in.max_amount,
+            requires_approval=perm_in.requires_approval,
+            description=perm_in.description or "",
+            authorized_by=perm_in.authorized_by or "admin"
+        )
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+
+@app.delete("/api/permissions/{perm_id}", tags=["Permissions"])
+def revoke_permission(perm_id: int, authorized_by: str = Query(default="admin"), db: Session = Depends(get_db)):
+    try:
+        success = RBACService.revoke_permission(db=db, permission_id=perm_id, authorized_by=authorized_by)
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Permission #{perm_id} not found.")
+        return {"message": f"Permission #{perm_id} successfully revoked."}
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
 
 
 # -----------------------------------------------------------------------------
@@ -183,6 +222,16 @@ def toggle_policy(rule_id: int, db: Session = Depends(get_db)):
     rule.is_active = not rule.is_active
     db.commit()
     return {"id": rule.id, "name": rule.name, "is_active": rule.is_active}
+
+@app.delete("/api/policies/{rule_id}", tags=["Policies"])
+def delete_policy(rule_id: int, db: Session = Depends(get_db)):
+    from backend.models import PolicyRule
+    rule = db.query(PolicyRule).filter(PolicyRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail=f"Policy rule '{rule_id}' not found.")
+    db.delete(rule)
+    db.commit()
+    return {"message": f"Policy rule #{rule_id} decommissioned successfully."}
 
 
 # -----------------------------------------------------------------------------

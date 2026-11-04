@@ -57,15 +57,28 @@ class AgentActivityItem(BaseModel):
 
 
 # --- PERMISSION SCHEMAS ---
+class RoleAssignRequest(BaseModel):
+    new_role: str = Field(..., json_schema_extra={"example": "Finance"})
+    authorized_by: str = Field(default="admin", json_schema_extra={"example": "secops_lead_carol"})
+
+class RoleResponse(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    is_system_role: bool = False
+    agent_count: int = 0
+    permission_count: int = 0
+    created_at: Optional[datetime] = None
+
 class PermissionBase(BaseModel):
     role: str
     tool_name: str
     action_type: str = "execute"
     max_amount: Optional[float] = None
     requires_approval: bool = False
+    description: Optional[str] = ""
 
 class PermissionCreate(PermissionBase):
-    pass
+    authorized_by: Optional[str] = "admin"
 
 class PermissionResponse(PermissionBase):
     id: int
